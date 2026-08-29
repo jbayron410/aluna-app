@@ -263,6 +263,7 @@
   <div class="header-actions">
     <button class="btn btn-green" onclick="openModal('venta')">➕ Agregar Venta</button>
     <button class="btn btn-blue" onclick="openModal('compra')">➕ Agregar Compra</button>
+    <button class="btn" style="background:#a855f7;color:#fff" onclick="openModal('producto')">🆕 Nuevo Producto</button>
     <button class="btn btn-accent" onclick="loadData()">🔄 Actualizar</button>
   </div>
 </div>
@@ -425,6 +426,32 @@
   </div>
 </div>
 
+<!-- Modal Producto -->
+<div class="modal-overlay" id="modal-producto">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('producto')">&times;</button>
+    <h2>🆕 <span>Nuevo Producto</span></h2>
+    <form id="form-producto" onsubmit="submitProducto(event)">
+      <div class="form-group">
+        <label>Código</label>
+        <input type="text" name="codigo" placeholder="Ej: 3701129800843" required>
+      </div>
+      <div class="form-group">
+        <label>Descripción</label>
+        <input type="text" name="descripcion" placeholder="Nombre del producto" required>
+      </div>
+      <div class="form-group">
+        <label>Costo Promedio</label>
+        <input type="text" name="costo" placeholder="$9.600" required>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeModal('producto')">Cancelar</button>
+        <button type="submit" class="btn" style="background:#a855f7;color:#fff">💾 Crear Producto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -509,6 +536,44 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+// ── Submit Producto ──
+async function submitProducto(e) {
+  e.preventDefault();
+  const f = e.target;
+  const btn = f.querySelector('[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Creando...';
+
+  try {
+    const body = {
+      codigo: f.codigo.value,
+      descripcion: f.descripcion.value,
+      costo: f.costo.value,
+    };
+
+    const res = await fetch('/api/productos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`✅ Producto creado en fila ${data.row}`);
+      closeModal('producto');
+      loadInventarioSelect();
+      loadData();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (err) {
+    showToast(`❌ Error: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Crear Producto';
+  }
 }
 
 // ── Submit Venta ──
