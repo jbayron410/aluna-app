@@ -1,0 +1,9 @@
+{
+  "name": "aluna-app",
+  "version": "1.0.0",
+  "description": "Aluna - Dashboard de gestión de compras, ventas e inventario",
+  "private": true,
+  "dependencies": {
+    "googleapis": "^144.0.0"
+  }
+}

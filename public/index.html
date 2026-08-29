@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MercadoLibre Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #9ca3af;
+    --accent: #fbbf24;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --orange: #f97316;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; }
+  .header h1 span { color: var(--accent); }
+  .header .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+  .header-actions { display: flex; gap: 0.5rem; }
+  .btn {
+    border: none;
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-accent { background: var(--accent); color: #000; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.78rem; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .kpi-card .label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-card .value { font-size: 1.75rem; font-weight: 700; margin: 0.25rem 0; }
+  .kpi-card .sub { color: var(--muted); font-size: 0.8rem; }
+  .kpi-card.green .value { color: var(--green); }
+  .kpi-card.blue .value { color: var(--blue); }
+  .kpi-card.accent .value { color: var(--accent); }
+  .kpi-card.purple .value { color: var(--purple); }
+  .kpi-card.orange .value { color: var(--orange); }
+  .kpi-card.red .value { color: var(--red); }
+
+  /* Charts */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .chart-card h3 { font-size: 0.95rem; margin-bottom: 1rem; color: var(--muted); }
+  .chart-card canvas { max-height: 300px; }
+
+  /* Tables */
+  .table-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+  }
+  .table-card h3 { font-size: 0.95rem; margin-bottom: 1rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid var(--border); color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; }
+  td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(255,255,255,0.03); }
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .badge-meli { background: #fef3c7; color: #92400e; }
+  .badge-fisico { background: #dbeafe; color: #1e40af; }
+  .badge-ok { background: #dcfce7; color: #166534; }
+  .badge-transit { background: #fef9c3; color: #854d0e; }
+  .text-right { text-align: right; }
+  .text-green { color: var(--green); }
+  .text-red { color: var(--red); }
+
+  /* Resumen table */
+  .resumen-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .loading { text-align: center; padding: 4rem; color: var(--muted); }
+  .loading .spinner { display: inline-block; width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 95%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+  .modal h2 { font-size: 1.2rem; margin-bottom: 1.25rem; }
+  .modal h2 span { color: var(--accent); }
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .form-group input, .form-group select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--accent);
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+  }
+  .btn-cancel {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 2000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: var(--green); color: #fff; }
+  .toast.error { background: var(--red); color: #fff; }
+
+  /* Formula status */
+  .formula-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    background: rgba(34,197,94,0.1);
+    color: var(--green);
+    border: 1px solid rgba(34,197,94,0.2);
+  }
+  .formula-status.warn { background: rgba(239,68,68,0.1); color: var(--red); border-color: rgba(239,68,68,0.2); }
+
+  @media (max-width: 900px) {
+    .charts-grid, .resumen-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>📦 <span>MercadoLibre</span> Dashboard</h1>
+    <div class="subtitle">Gestión de Compras, Ventas e Inventario</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-green" onclick="openModal('venta')">➕ Agregar Venta</button>
+    <button class="btn btn-blue" onclick="openModal('compra')">➕ Agregar Compra</button>
+    <button class="btn btn-accent" onclick="loadData()">🔄 Actualizar</button>
+  </div>
+</div>
+
+<div class="container" id="app">
+  <div class="loading"><div class="spinner"></div><p style="margin-top:1rem">Cargando datos...</p></div>
+</div>
+
+<!-- Modal Venta -->
+<div class="modal-overlay" id="modal-venta">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('venta')">&times;</button>
+    <h2>🛒 <span>Agregar Venta</span></h2>
+    <form id="form-venta" onsubmit="submitVenta(event)">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quien Recibe</label>
+          <select name="quienRecibe" required>
+            <option value="">Seleccionar...</option>
+            <option value="Bayron">Bayron</option>
+            <option value="Daniela">Daniela</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha</label>
+          <input type="date" name="fecha" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Producto (Inventario)</label>
+        <select name="productoInventario" id="venta-producto-select" onchange="onProductoSelect(this)">
+          <option value="">-- Seleccionar del inventario --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Código</label>
+          <input type="text" name="codigo" id="venta-codigo" placeholder="Ej: 052336341456">
+        </div>
+        <div class="form-group">
+          <label>Documento</label>
+          <input type="text" name="documento" placeholder="Nro documento">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Cliente</label>
+        <input type="text" name="cliente" placeholder="Nombre del cliente (opcional)">
+      </div>
+      <div class="form-group">
+        <label>Descripción</label>
+        <input type="text" name="descripcion" id="venta-descripcion" placeholder="Nombre del producto" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cantidad</label>
+          <input type="number" name="cantidad" min="1" value="1" required>
+        </div>
+        <div class="form-group">
+          <label>Costo Unitario</label>
+          <input type="text" name="costo" id="venta-costo" placeholder="$9.600" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Precio Venta</label>
+          <input type="text" name="precioVenta" placeholder="$25.000" required>
+        </div>
+        <div class="form-group">
+          <label>Fuente</label>
+          <select name="fuente" required>
+            <option value="MELI">MercadoLibre</option>
+            <option value="FISICO">Físico</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Envío</label>
+          <input type="text" name="envio" placeholder="$0" value="$0">
+        </div>
+        <div class="form-group">
+          <label>Comisión</label>
+          <input type="text" name="comision" placeholder="$0" value="$0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Otros</label>
+          <input type="text" name="otros" placeholder="$0" value="$0">
+        </div>
+        <div class="form-group">
+          <label>En Tránsito</label>
+          <select name="enTransito">
+            <option value="NO">No</option>
+            <option value="SI">Sí</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeModal('venta')">Cancelar</button>
+        <button type="submit" class="btn btn-green">💾 Guardar Venta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Compra -->
+<div class="modal-overlay" id="modal-compra">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('compra')">&times;</button>
+    <h2>📥 <span>Agregar Compra</span></h2>
+    <form id="form-compra" onsubmit="submitCompra(event)">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quién Entrega</label>
+          <select name="quienEntrega" required>
+            <option value="">Seleccionar...</option>
+            <option value="Bayron">Bayron</option>
+            <option value="Daniela">Daniela</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha</label>
+          <input type="date" name="fecha" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Código</label>
+          <input type="text" name="codigo" placeholder="Ej: 052336341456">
+        </div>
+        <div class="form-group">
+          <label>Cantidad</label>
+          <input type="number" name="cantidad" min="1" value="1" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descripción</label>
+        <input type="text" name="descripcion" placeholder="Nombre del producto" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor Unitario</label>
+          <input type="text" name="valor" placeholder="$9.600" required>
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select name="estado">
+            <option value="OK">OK</option>
+            <option value="Transit">En Tránsito</option>
+            <option value="Pendiente">Pendiente</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeModal('compra')">Cancelar</button>
+        <button type="submit" class="btn btn-blue">💾 Guardar Compra</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const fmt = (n) => '$' + Number(n).toLocaleString('es-CO');
+let charts = {};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+// ── Inventory data cache ──
+let inventarioCache = [];
+
+function loadInventarioSelect() {
+  fetch('/api/inventario')
+    .then(r => r.json())
+    .then(items => {
+      inventarioCache = items;
+      const sel = $('#venta-producto-select');
+      // Keep first option (placeholder)
+      while (sel.options.length > 1) sel.remove(1);
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.codigo;
+        const stock = item.stock || '0';
+        opt.textContent = `${item.descripcion} (Stock: ${stock})`;
+        opt.dataset.descripcion = item.descripcion;
+        opt.dataset.costo = item.costo;
+        opt.dataset.codigo = item.codigo;
+        sel.appendChild(opt);
+      });
+    })
+    .catch(err => console.warn('No se pudo cargar inventario:', err));
+}
+
+function onProductoSelect(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  const codigo = opt.dataset.codigo || '';
+  const descripcion = opt.dataset.descripcion || '';
+  const costo = opt.dataset.costo || '';
+  const codigoInput = $('#venta-codigo');
+  const descInput = $('#venta-descripcion');
+  const costoInput = $('#venta-costo');
+  if (codigoInput) codigoInput.value = codigo;
+  if (descInput) descInput.value = descripcion;
+  if (costoInput) costoInput.value = costo;
+}
+
+// ── Toast ──
+function showToast(msg, type = 'success') {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── Modal ──
+function openModal(type) {
+  $(`#modal-${type}`).classList.add('active');
+  // Set today's date as default
+  const dateInput = $(`#form-${type} input[name="fecha"]`);
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+}
+function closeModal(type) {
+  $(`#modal-${type}`).classList.remove('active');
+  $(`#form-${type}`).reset();
+}
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', (e) => {
+    if (e.target === el) el.classList.remove('active');
+  });
+});
+
+// ── Format date for sheet (M/D/YYYY) ──
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+// ── Submit Venta ──
+async function submitVenta(e) {
+  e.preventDefault();
+  const f = e.target;
+  const btn = f.querySelector('[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const body = {
+      quienRecibe: f.quienRecibe.value,
+      fecha: formatDate(f.fecha.value),
+      codigo: f.codigo.value,
+      documento: f.documento.value,
+      cliente: f.cliente.value,
+      descripcion: f.descripcion.value,
+      cantidad: f.cantidad.value,
+      costo: f.costo.value,
+      precioVenta: f.precioVenta.value,
+      envio: f.envio.value || '$0',
+      comision: f.comision.value || '$0',
+      otros: f.otros.value || '$0',
+      enTransito: f.enTransito.value,
+      fuente: f.fuente.value,
+    };
+
+    const res = await fetch('/api/ventas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`✅ Venta registrada en fila ${data.row} con fórmulas`);
+      closeModal('venta');
+      loadData();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (err) {
+    showToast(`❌ Error: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Venta';
+  }
+}
+
+// ── Submit Compra ──
+async function submitCompra(e) {
+  e.preventDefault();
+  const f = e.target;
+  const btn = f.querySelector('[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const body = {
+      quienEntrega: f.quienEntrega.value,
+      fecha: formatDate(f.fecha.value),
+      codigo: f.codigo.value,
+      descripcion: f.descripcion.value,
+      cantidad: f.cantidad.value,
+      valor: f.valor.value,
+      estado: f.estado.value,
+    };
+
+    const res = await fetch('/api/compras', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`✅ Compra registrada en fila ${data.row} con fórmulas`);
+      closeModal('compra');
+      loadData();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (err) {
+    showToast(`❌ Error: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Compra';
+  }
+}
+
+// ── Load Data ──
+function loadData() {
+  const app = $('#app');
+  app.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:1rem">Cargando datos...</p></div>';
+
+  fetch('/api/data')
+    .then(r => r.json())
+    .then(data => {
+      destroyCharts();
+      render(data);
+    })
+    .catch(err => {
+      app.innerHTML = `<div class="loading"><p style="color:var(--red)">Error: ${err.message}</p></div>`;
+    });
+}
+
+function parsePercent(val) {
+  if (!val) return 0;
+  return Number(String(val).replace(/[^0-9.,\-]/g, '').replace(',', '.')) || 0;
+}
+
+function render(d) {
+  const app = $('#app');
+  const k = d.kpis;
+
+  app.innerHTML = `
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="label">Ventas Totales</div>
+        <div class="value">${fmt(k.totalVentas)}</div>
+        <div class="sub">${k.numVentas} transacciones</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="label">Compras Totales</div>
+        <div class="value">${fmt(k.totalCompras)}</div>
+        <div class="sub">${k.numCompras} órdenes</div>
+      </div>
+      <div class="kpi-card accent">
+        <div class="label">Ganancia Neta</div>
+        <div class="value">${fmt(k.totalGanancia)}</div>
+        <div class="sub">Margen: ${k.margenGeneral}%</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="label">Inventario Activo</div>
+        <div class="value">${fmt(k.valorInventario)}</div>
+        <div class="sub">${k.numProductos} productos</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="label">Ventas MELI</div>
+        <div class="value">${fmt(k.totalMeli)}</div>
+        <div class="sub">MercadoLibre</div>
+      </div>
+      <div class="kpi-card">
+        <div class="label">Ventas Físico</div>
+        <div class="value">${fmt(k.totalFisico)}</div>
+        <div class="sub">Venta directa</div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>📈 Ventas vs Compras por Mes</h3>
+        <canvas id="chartMes"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>🏷️ Ventas por Fuente (MELI vs Físico)</h3>
+        <canvas id="chartFuente"></canvas>
+      </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>🏆 Top Productos por Ganancia</h3>
+        <canvas id="chartProductos"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>👤 Ganancia por Vendedor</h3>
+        <canvas id="chartVendedor"></canvas>
+      </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="resumen-grid">
+      <div class="table-card">
+        <h3>📊 Resumen por Usuario</h3>
+        <table>
+          <thead><tr><th>Usuario</th><th class="text-right">Compras</th><th class="text-right">Ventas</th><th class="text-right">Efectivo</th><th class="text-right">MELI</th><th>Cuadre</th></tr></thead>
+          <tbody>
+            ${d.resumen.filter(r => r['Usuario']).map(r => `
+              <tr>
+                <td><strong>${r['Usuario']}</strong></td>
+                <td class="text-right">${r['Compras'] || '-'}</td>
+                <td class="text-right">${r['Ventas'] || '-'}</td>
+                <td class="text-right">${r['Efetivo'] || r['Efectivo'] || '-'}</td>
+                <td class="text-right">${r['Meli'] || '-'}</td>
+                <td><span class="badge badge-ok">${r['Cuadre'] || '-'}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="table-card">
+        <h3>⏳ Compras Pendientes / En Tránsito</h3>
+        ${d.comprasPendientes.length === 0 ? '<p style="color:var(--muted);padding:1rem">Sin compras pendientes ✅</p>' : `
+        <table>
+          <thead><tr><th>Fecha</th><th>Descripción</th><th class="text-right">Total</th><th>Estado</th></tr></thead>
+          <tbody>
+            ${d.comprasPendientes.map(r => `
+              <tr>
+                <td>${r['Fecha'] || '-'}</td>
+                <td>${r['Descripcion'] || '-'}</td>
+                <td class="text-right">${r['Total'] || '-'}</td>
+                <td><span class="badge badge-transit">${r['Estado']}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`}
+      </div>
+    </div>
+
+    <!-- Inventario -->
+    <div class="table-card">
+      <h3>📦 Inventario Actual</h3>
+      <table>
+        <thead><tr><th>Código</th><th>Descripción</th><th class="text-right">Entrada</th><th class="text-right">Salida</th><th class="text-right">Stock</th><th class="text-right">Costo Prom.</th><th class="text-right">Valor</th></tr></thead>
+        <tbody>
+          ${d.inventario.map(r => `
+            <tr>
+              <td style="font-family:monospace;font-size:0.75rem">${r['Codigo'] || '-'}</td>
+              <td>${r['Descripción'] || '-'}</td>
+              <td class="text-right">${r['Entrada'] || '0'}</td>
+              <td class="text-right">${r['Salida'] || '0'}</td>
+              <td class="text-right"><strong>${r['Inventario'] || '0'}</strong></td>
+              <td class="text-right">${r['Costo promedio'] || '-'}</td>
+              <td class="text-right">${r['Activo'] || '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Ventas Recientes -->
+    <div class="table-card">
+      <h3>🛒 Últimas 20 Ventas</h3>
+      <table>
+        <thead><tr><th>Fecha</th><th>Vendedor</th><th>Descripción</th><th class="text-right">Cant.</th><th class="text-right">Precio</th><th class="text-right">Ganancia</th><th class="text-right">%</th><th>Fuente</th></tr></thead>
+        <tbody>
+          ${d.ventasRecientes.map(r => {
+            const pct = parsePercent(r['Porcentaje Ganancia']);
+            return `
+            <tr>
+              <td>${r['Fecha'] || '-'}</td>
+              <td>${r['Quien Recibe'] || '-'}</td>
+              <td>${r['Descripcion'] || '-'}</td>
+              <td class="text-right">${r['Cantidad'] || '-'}</td>
+              <td class="text-right">${r['Precio Venta'] || '-'}</td>
+              <td class="text-right ${pct >= 0 ? 'text-green' : 'text-red'}">${r['Ganancia'] || '-'}</td>
+              <td class="text-right">${r['Porcentaje Ganancia'] || '-'}</td>
+              <td><span class="badge ${(r['FUENTE']||'').toUpperCase()==='MELI' ? 'badge-meli' : 'badge-fisico'}">${r['FUENTE'] || '-'}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // ── Charts ──
+  const allMonths = [...new Set([...d.ventasPorMes.map(v=>v[0]), ...d.comprasPorMes.map(v=>v[0])])].sort();
+
+  charts.mes = new Chart($('#chartMes'), {
+    type: 'bar',
+    data: {
+      labels: allMonths,
+      datasets: [
+        { label: 'Ventas', data: allMonths.map(m => { const f = d.ventasPorMes.find(v=>v[0]===m); return f?f[1]:0; }), backgroundColor: '#22c55e88', borderColor: '#22c55e', borderWidth: 1 },
+        { label: 'Compras', data: allMonths.map(m => { const f = d.comprasPorMes.find(v=>v[0]===m); return f?f[1]:0; }), backgroundColor: '#3b82f688', borderColor: '#3b82f6', borderWidth: 1 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#9ca3af' } } }, scales: { x: { ticks: { color: '#9ca3af' }, grid: { color: '#2a2d3a' } }, y: { ticks: { color: '#9ca3af', callback: v => '$'+v.toLocaleString() }, grid: { color: '#2a2d3a' } } } }
+  });
+
+  const fuenteMonths = d.fuentePorMes.map(v=>v[0]);
+  charts.fuente = new Chart($('#chartFuente'), {
+    type: 'bar',
+    data: {
+      labels: fuenteMonths,
+      datasets: [
+        { label: 'MELI', data: fuenteMonths.map(m => { const f = d.fuentePorMes.find(v=>v[0]===m); return f?f[1].MELI:0; }), backgroundColor: '#fbbf2488', borderColor: '#fbbf24', borderWidth: 1 },
+        { label: 'Físico', data: fuenteMonths.map(m => { const f = d.fuentePorMes.find(v=>v[0]===m); return f?f[1].FISICO:0; }), backgroundColor: '#a855f788', borderColor: '#a855f7', borderWidth: 1 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#9ca3af' } } }, scales: { x: { stacked: true, ticks: { color: '#9ca3af' }, grid: { color: '#2a2d3a' } }, y: { stacked: true, ticks: { color: '#9ca3af', callback: v => '$'+v.toLocaleString() }, grid: { color: '#2a2d3a' } } } }
+  });
+
+  charts.prod = new Chart($('#chartProductos'), {
+    type: 'bar',
+    data: {
+      labels: d.topProductos.map(p => p[0].length > 25 ? p[0].slice(0,25)+'…' : p[0]),
+      datasets: [{ label: 'Ganancia', data: d.topProductos.map(p => p[1]), backgroundColor: d.topProductos.map((_,i) => ['#fbbf24','#22c55e','#3b82f6','#a855f7','#f97316','#ef4444','#06b6d4','#ec4899','#84cc16','#6366f1'][i]), borderWidth: 0 }]
+    },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9ca3af', callback: v => '$'+v.toLocaleString() }, grid: { color: '#2a2d3a' } }, y: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { display: false } } } }
+  });
+
+  charts.vend = new Chart($('#chartVendedor'), {
+    type: 'doughnut',
+    data: {
+      labels: d.ganVendedor.map(v => v[0]),
+      datasets: [{ data: d.ganVendedor.map(v => v[1]), backgroundColor: ['#fbbf24','#3b82f6','#22c55e','#a855f7'], borderWidth: 0 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 20 } } } }
+  });
+}
+
+loadInventarioSelect();
+loadData();
+</script>
+</body>
+</html>
