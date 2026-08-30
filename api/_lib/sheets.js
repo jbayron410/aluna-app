@@ -58,7 +58,7 @@ async function appendRow(sheets, tabName, values) {
 async function getLastRow(sheets, tabName) {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `'${tabName}'!A:A`,
+    range: `'${tabName}'!B:B`,
   });
   return (res.data.values || []).length;
 }
