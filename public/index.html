@@ -440,10 +440,6 @@
         <label>Descripción</label>
         <input type="text" name="descripcion" placeholder="Nombre del producto" required>
       </div>
-      <div class="form-group">
-        <label>Costo Promedio</label>
-        <input type="text" name="costo" placeholder="$9.600" required>
-      </div>
       <div class="form-actions">
         <button type="button" class="btn btn-cancel" onclick="closeModal('producto')">Cancelar</button>
         <button type="submit" class="btn" style="background:#a855f7;color:#fff">💾 Crear Producto</button>
@@ -550,7 +546,6 @@ async function submitProducto(e) {
     const body = {
       codigo: f.codigo.value,
       descripcion: f.descripcion.value,
-      costo: f.costo.value,
     };
 
     const res = await fetch('/api/productos', {

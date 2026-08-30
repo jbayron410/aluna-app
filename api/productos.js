@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
     const lastRow = await getLastRow(sheets, 'Inventario');
     const newRow = lastRow + 1;
 
-    // Columns: A(empty), B(Codigo), C(Descripcion), D(Entrada=0), E(Salida=0), F(Inventario=formula), G(Daniela=0), H(Bayron=0), I(Costo promedio), J(Inventario OK?), K(Activo=formula)
+    // Columns: A(empty), B(Codigo), C(Descripcion), D(Entrada=0), E(Salida=0), F(Inventario=formula), G(Daniela=0), H(Bayron=0), I(Costo promedio=formula), J(Inventario OK?), K(Activo=formula)
     const values = [
       '',
       body.codigo || '',
@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
       '',
       '0',
       '0',
-      body.costo || '',
+      '',
       '',
       '',
     ];
@@ -33,7 +33,8 @@ module.exports = async (req, res) => {
     // Set formulas
     await setFormulas(sheets, 'Inventario', newRow, {
       'F': '=D{row}-E{row}',
-      'J': '=IF(F{row}>0,"OK","Agotado")',
+      'I': '=IFERROR(SUMIF(Tabla_1[[#ALL],[Codigo]];B{row};Tabla_1[[#ALL],[Total]])/D{row};0)',
+      'J': '=IF(F{row}>0;"OK";"Agotado")',
       'K': '=F{row}*I{row}',
     });
 
