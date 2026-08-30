@@ -1,4 +1,4 @@
-const { getSheetsClient, appendRow, getLastRow, setFormulas } = require('./_lib/sheets');
+const { getSheetsClient, getLastRow, setFormulas, SPREADSHEET_ID } = require('./_lib/sheets');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,22 +13,21 @@ module.exports = async (req, res) => {
     const lastRow = await getLastRow(sheets, 'Inventario');
     const newRow = lastRow + 1;
 
-    // Columns: A(empty), B(Codigo), C(Descripcion), D(Entrada=0), E(Salida=0), F(Inventario=formula), G(Daniela=0), H(Bayron=0), I(Costo promedio=formula), J(Inventario OK?), K(Activo=formula)
-    const values = [
-      '',
-      body.codigo || '',
-      body.descripcion || '',
-      '0',
-      '0',
-      '',
-      '0',
-      '0',
-      '',
-      '',
-      '',
-    ];
-
-    await appendRow(sheets, 'Inventario', values);
+    // Write values directly to specific cells (B through H), skip A
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: [
+          { range: `'Inventario'!B${newRow}`, values: [[body.codigo || '']] },
+          { range: `'Inventario'!C${newRow}`, values: [[body.descripcion || '']] },
+          { range: `'Inventario'!D${newRow}`, values: [['0']] },
+          { range: `'Inventario'!E${newRow}`, values: [['0']] },
+          { range: `'Inventario'!G${newRow}`, values: [['0']] },
+          { range: `'Inventario'!H${newRow}`, values: [['0']] },
+        ],
+      },
+    });
 
     // Set formulas
     await setFormulas(sheets, 'Inventario', newRow, {
