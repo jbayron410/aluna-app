@@ -390,10 +390,29 @@
           <input type="date" name="fecha" required>
         </div>
       </div>
+      <div class="form-group">
+        <label>Producto</label>
+        <select name="productoCompra" id="compra-producto-select" onchange="onCompraProductoSelect(this)" required>
+          <option value="">-- Seleccionar producto --</option>
+          <option value="__nuevo__">🆕 Producto nuevo</option>
+        </select>
+      </div>
+      <div id="compra-nuevo-fields" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Código nuevo</label>
+            <input type="text" name="codigoNuevo" placeholder="Ej: 3701129800843">
+          </div>
+          <div class="form-group">
+            <label>Descripción nueva</label>
+            <input type="text" name="descripcionNueva" placeholder="Nombre del producto">
+          </div>
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label>Código</label>
-          <input type="text" name="codigo" placeholder="Ej: 052336341456">
+          <input type="text" name="codigo" id="compra-codigo" placeholder="Ej: 052336341456" readonly style="opacity:0.6">
         </div>
         <div class="form-group">
           <label>Cantidad</label>
@@ -402,7 +421,7 @@
       </div>
       <div class="form-group">
         <label>Descripción</label>
-        <input type="text" name="descripcion" placeholder="Nombre del producto" required>
+        <input type="text" name="descripcion" id="compra-descripcion" placeholder="Nombre del producto" readonly style="opacity:0.6">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -500,6 +519,57 @@ function onProductoSelect(sel) {
   if (costoInput) costoInput.value = costo;
 }
 
+// ── Compra product select ──
+function loadCompraSelect() {
+  fetch('/api/inventario-todos')
+    .then(r => r.json())
+    .then(items => {
+      const sel = $('#compra-producto-select');
+      while (sel.options.length > 2) sel.remove(2);
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.codigo;
+        const stock = item.stock || '0';
+        opt.textContent = `${item.descripcion} (Stock: ${stock})`;
+        opt.dataset.descripcion = item.descripcion;
+        opt.dataset.codigo = item.codigo;
+        sel.appendChild(opt);
+      });
+    })
+    .catch(err => console.warn('No se pudo cargar inventario-todos:', err));
+}
+
+function onCompraProductoSelect(sel) {
+  const val = sel.value;
+  const nuevoFields = $('#compra-nuevo-fields');
+  const codigoInput = $('#compra-codigo');
+  const descInput = $('#compra-descripcion');
+
+  if (val === '__nuevo__') {
+    nuevoFields.style.display = 'block';
+    codigoInput.value = '';
+    codigoInput.readOnly = false;
+    codigoInput.style.opacity = '1';
+    descInput.value = '';
+    descInput.readOnly = false;
+    descInput.style.opacity = '1';
+  } else {
+    nuevoFields.style.display = 'none';
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.value) {
+      codigoInput.value = opt.dataset.codigo || '';
+      descInput.value = opt.dataset.descripcion || '';
+    } else {
+      codigoInput.value = '';
+      descInput.value = '';
+    }
+    codigoInput.readOnly = true;
+    codigoInput.style.opacity = '0.6';
+    descInput.readOnly = true;
+    descInput.style.opacity = '0.6';
+  }
+}
+
 // ── Toast ──
 function showToast(msg, type = 'success') {
   const t = $('#toast');
@@ -520,6 +590,15 @@ function openModal(type) {
 function closeModal(type) {
   $(`#modal-${type}`).classList.remove('active');
   $(`#form-${type}`).reset();
+  // Reset compra select state
+  if (type === 'compra') {
+    const nuevoFields = $('#compra-nuevo-fields');
+    if (nuevoFields) nuevoFields.style.display = 'none';
+    const codigoInput = $('#compra-codigo');
+    const descInput = $('#compra-descripcion');
+    if (codigoInput) { codigoInput.value = ''; codigoInput.readOnly = true; codigoInput.style.opacity = '0.6'; }
+    if (descInput) { descInput.value = ''; descInput.readOnly = true; descInput.style.opacity = '0.6'; }
+  }
 }
 // Close on overlay click
 document.querySelectorAll('.modal-overlay').forEach(el => {
@@ -628,11 +707,31 @@ async function submitCompra(e) {
   btn.textContent = 'Guardando...';
 
   try {
+    const selVal = f.productoCompra.value;
+    let codigo = f.codigo.value;
+    let descripcion = f.descripcion.value;
+
+    // If "nuevo producto" selected, create product first
+    if (selVal === '__nuevo__') {
+      codigo = f.codigoNuevo.value;
+      descripcion = f.descripcionNueva.value;
+      if (!codigo || !descripcion) throw new Error('Completa código y descripción del producto nuevo');
+
+      const prodRes = await fetch('/api/productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, descripcion }),
+      });
+      const prodData = await prodRes.json();
+      if (!prodData.success) throw new Error(prodData.error);
+      showToast(`🆕 Producto creado: ${descripcion}`);
+    }
+
     const body = {
       quienEntrega: f.quienEntrega.value,
       fecha: formatDate(f.fecha.value),
-      codigo: f.codigo.value,
-      descripcion: f.descripcion.value,
+      codigo,
+      descripcion,
       cantidad: f.cantidad.value,
       valor: f.valor.value,
       estado: f.estado.value,
@@ -648,6 +747,8 @@ async function submitCompra(e) {
     if (data.success) {
       showToast(`✅ Compra registrada en fila ${data.row} con fórmulas`);
       closeModal('compra');
+      loadInventarioSelect();
+      loadCompraSelect();
       loadData();
     } else {
       throw new Error(data.error);
@@ -877,6 +978,7 @@ function render(d) {
 }
 
 loadInventarioSelect();
+loadCompraSelect();
 loadData();
 </script>
 </body>
