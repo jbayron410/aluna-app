@@ -47,7 +47,7 @@ function parsePercent(val) {
 async function appendRow(sheets, tabName, values) {
   const res = await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `'${tabName}'!A:K`,
+    range: `'${tabName}'!A:Z`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [values] },
@@ -58,7 +58,7 @@ async function appendRow(sheets, tabName, values) {
 async function getLastRow(sheets, tabName) {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `'${tabName}'!B:B`,
+    range: `'${tabName}'!A:A`,
   });
   return (res.data.values || []).length;
 }

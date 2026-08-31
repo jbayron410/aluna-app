@@ -14,7 +14,6 @@ module.exports = async (req, res) => {
     const newRow = lastRow + 1;
 
     const values = [
-      '',
       body.quienEntrega || '',
       body.fecha || '',
       body.codigo || '',
@@ -27,7 +26,7 @@ module.exports = async (req, res) => {
 
     await appendRow(sheets, 'Compras Proyecto', values);
     await setFormulas(sheets, 'Compras Proyecto', newRow, {
-      'H': '=F{row}*G{row}',
+      'G': '=E{row}*F{row}',
     });
 
     res.status(200).json({ success: true, row: newRow });
