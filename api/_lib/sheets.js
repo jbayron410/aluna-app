@@ -52,7 +52,11 @@ async function appendRow(sheets, tabName, values) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [values] },
   });
-  return res.data;
+  // Parse updated range to get the actual row number
+  const updatedRange = res.data.updates?.updatedRange || '';
+  const match = updatedRange.match(/![A-Z]+(\d+)/);
+  const row = match ? parseInt(match[1]) : null;
+  return { data: res.data, row };
 }
 
 async function getLastRow(sheets, tabName) {

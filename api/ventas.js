@@ -1,4 +1,4 @@
-const { getSheetsClient, appendRow, getLastRow, setFormulas } = require('./_lib/sheets');
+const { getSheetsClient, appendRow, setFormulas } = require('./_lib/sheets');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,8 +10,6 @@ module.exports = async (req, res) => {
   try {
     const body = req.body;
     const sheets = await getSheetsClient();
-    const lastRow = await getLastRow(sheets, 'Ventas Proyectos');
-    const newRow = lastRow + 1;
 
     const values = [
       body.quienRecibe || '',
@@ -34,7 +32,9 @@ module.exports = async (req, res) => {
       body.fuente || 'MELI',
     ];
 
-    await appendRow(sheets, 'Ventas Proyectos', values);
+    const result = await appendRow(sheets, 'Ventas Proyectos', values);
+    const newRow = result.row;
+
     await setFormulas(sheets, 'Ventas Proyectos', newRow, {
       'M': '=I{row}-J{row}-K{row}-L{row}',
       'O': '=M{row}*G{row}',

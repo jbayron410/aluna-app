@@ -581,10 +581,10 @@ function showToast(msg, type = 'success') {
 // ── Modal ──
 function openModal(type) {
   $(`#modal-${type}`).classList.add('active');
-  // Set today's date as default
+  // Set today's date as default (Colombia timezone)
   const dateInput = $(`#form-${type} input[name="fecha"]`);
   if (dateInput && !dateInput.value) {
-    dateInput.value = new Date().toISOString().split('T')[0];
+    dateInput.value = getTodayColombia();
   }
 }
 function closeModal(type) {
@@ -607,10 +607,16 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
   });
 });
 
-// ── Format date for sheet (M/D/YYYY) ──
+// ── Format date for sheet (D/M/YYYY) — Colombia timezone ──
 function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  // dateStr comes as YYYY-MM-DD from <input type="date">
+  // Reformat to D/M/YYYY for Google Sheets Spanish locale
+  const [year, month, day] = dateStr.split('-');
+  return `${parseInt(day)}/${parseInt(month)}/${year}`;
+}
+
+function getTodayColombia() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 }
 
 // ── Submit Producto ──

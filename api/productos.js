@@ -1,4 +1,4 @@
-const { getSheetsClient, getLastRow, setFormulas, SPREADSHEET_ID } = require('./_lib/sheets');
+const { getSheetsClient, appendRow, setFormulas } = require('./_lib/sheets');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,22 +10,23 @@ module.exports = async (req, res) => {
   try {
     const body = req.body;
     const sheets = await getSheetsClient();
-    const lastRow = await getLastRow(sheets, 'Inventario');
-    const newRow = lastRow + 1;
 
-    // Write values to specific cells (A through G)
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      requestBody: {
-        valueInputOption: 'USER_ENTERED',
-        data: [
-          { range: `'Inventario'!A${newRow}`, values: [[body.codigo || '']] },
-          { range: `'Inventario'!B${newRow}`, values: [[body.descripcion || '']] },
-          { range: `'Inventario'!F${newRow}`, values: [['0']] },
-          { range: `'Inventario'!G${newRow}`, values: [['0']] },
-        ],
-      },
-    });
+    // Use appendRow so the product lands INSIDE the table (not after it)
+    const values = [
+      body.codigo || '',       // A: Codigo
+      body.descripcion || '',  // B: Descripción
+      '',                      // C: Entrada (formula)
+      '',                      // D: Salida (formula)
+      '',                      // E: Inventario (formula)
+      '0',                     // F
+      '0',                     // G
+      '',                      // H: Costo promedio (formula)
+      '',                      // I: Status (formula)
+      '',                      // J: Activo (formula)
+    ];
+
+    const result = await appendRow(sheets, 'Inventario', values);
+    const newRow = result.row;
 
     // Set formulas — Entrada y Salida son SUMIF que se actualizan solas
     await setFormulas(sheets, 'Inventario', newRow, {
