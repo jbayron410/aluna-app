@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
     const newRow = result.row;
 
     await setFormulas(sheets, 'Ventas Proyectos', newRow, {
-      'H': "=IFERROR(VLOOKUP(C{row},'Inventario'!$A:$J;8;FALSE);0)",
+      'H': "=IFERROR(VLOOKUP(C{row};'Inventario'!$A:$J;8;FALSE);0)",
       'M': '=I{row}-J{row}-K{row}-L{row}',
       'O': '=IF(I{row}="";"";M{row}*G{row})',
       'P': '=IF(O{row}="";"";O{row}-(H{row}*G{row}))',
