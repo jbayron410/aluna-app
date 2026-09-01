@@ -342,17 +342,17 @@
       <div class="form-row">
         <div class="form-group">
           <label>Envío</label>
-          <input type="text" name="envio" placeholder="$0" value="$0">
+          <input type="number" name="envio" placeholder="0" value="0" min="0">
         </div>
         <div class="form-group">
           <label>Comisión</label>
-          <input type="text" name="comision" placeholder="$0" value="$0">
+          <input type="number" name="comision" placeholder="0" value="0" min="0">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Otros</label>
-          <input type="text" name="otros" placeholder="$0" value="$0">
+          <input type="number" name="otros" placeholder="0" value="0" min="0">
         </div>
         <div class="form-group">
           <label>En Tránsito</label>
@@ -675,9 +675,9 @@ async function submitVenta(e) {
       cantidad: f.cantidad.value,
       costo: f.costo.value,
       precioVenta: f.precioVenta.value,
-      envio: f.envio.value || '$0',
-      comision: f.comision.value || '$0',
-      otros: f.otros.value || '$0',
+      envio: f.envio.value || '0',
+      comision: f.comision.value || '0',
+      otros: f.otros.value || '0',
       enTransito: f.enTransito.value,
       fuente: f.fuente.value,
     };

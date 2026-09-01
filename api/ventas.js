@@ -1,5 +1,12 @@
 const { getSheetsClient, appendRow, setFormulas } = require('./_lib/sheets');
 
+// Convierte un valor monetario (ej: "$12.000" o "12000") a número, o 0 si no es válido
+function parseNum(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  const n = Number(String(v).replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -21,9 +28,9 @@ module.exports = async (req, res) => {
       body.cantidad || '',       // G
       '',                        // H: costo (fórmula VLOOKUP desde Inventario)
       body.precioVenta || '',    // I
-      body.envio || '$0',        // J
-      body.comision || '$0',     // K
-      body.otros || '$0',        // L
+      parseNum(body.envio),      // J
+      parseNum(body.comision),   // K
+      parseNum(body.otros),      // L
       '',                        // M: ganancia unitaria (fórmula)
       body.enTransito || 'NO',   // N
       '',                        // O: total (fórmula con IF)
@@ -36,11 +43,11 @@ module.exports = async (req, res) => {
     const newRow = result.row;
 
     await setFormulas(sheets, 'Ventas Proyectos', newRow, {
-      'H': "=IFERROR(VLOOKUP(C{row},'Inventario'!$A:$J,8,FALSE),0)",
+      'H': "=IFERROR(VLOOKUP(C{row},'Inventario'!$A:$J;8;FALSE);0)",
       'M': '=I{row}-J{row}-K{row}-L{row}',
-      'O': '=IF(I{row}="","",M{row}*G{row})',
-      'P': '=IF(O{row}="","",O{row}-(H{row}*G{row}))',
-      'Q': '=IF((H{row}*G{row})=0,0,P{row}/(H{row}*G{row}))',
+      'O': '=IF(I{row}="";"";M{row}*G{row})',
+      'P': '=IF(O{row}="";"";O{row}-(H{row}*G{row}))',
+      'Q': '=IF((H{row}*G{row})=0;0;P{row}/(H{row}*G{row}))',
     });
 
     res.status(200).json({ success: true, row: newRow });
