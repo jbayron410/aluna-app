@@ -354,6 +354,13 @@
           <label>Otros</label>
           <input type="number" name="otros" placeholder="0" value="0" min="0">
         </div>
+        <div class="form-group">
+          <label>En Tránsito</label>
+          <select name="enTransito">
+            <option value="NO">No</option>
+            <option value="SI">Sí</option>
+          </select>
+        </div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-cancel" onclick="closeModal('venta')">Cancelar</button>
@@ -670,6 +677,7 @@ async function submitVenta(e) {
       envio: f.envio.value || '0',
       comision: f.comision.value || '0',
       otros: f.otros.value || '0',
+      enTransito: f.enTransito.value,
       fuente: f.fuente.value,
     };
 

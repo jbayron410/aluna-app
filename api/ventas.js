@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
       parseNum(body.comision),   // K
       parseNum(body.otros),      // L
       '',                        // M: ganancia unitaria (fórmula)
-      '',                        // N
+      body.enTransito || 'NO',   // N
       '',                        // O: total (fórmula con IF)
       '',                        // P: ganancia (fórmula)
       '',                        // Q: porcentaje (fórmula)
