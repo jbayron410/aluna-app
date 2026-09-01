@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
     const values = [
       body.quienRecibe || '',   // A
       body.fecha || '',          // B
-      body.codigo || '',         // C
+      "'" + String(body.codigo || ''),   // C (apóstrofo fuerza texto en Sheets)
       body.documento || '',      // D
       body.cliente || '',        // E
       body.descripcion || '',    // F
@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
       parseNum(body.comision),   // K
       parseNum(body.otros),      // L
       '',                        // M: ganancia unitaria (fórmula)
-      body.enTransito || 'NO',   // N
+      '',                        // N
       '',                        // O: total (fórmula con IF)
       '',                        // P: ganancia (fórmula)
       '',                        // Q: porcentaje (fórmula)

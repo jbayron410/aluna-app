@@ -322,8 +322,8 @@
           <input type="number" name="cantidad" min="1" value="1" required>
         </div>
         <div class="form-group">
-          <label>Costo Unitario</label>
-          <input type="text" name="costo" id="venta-costo" placeholder="$9.600" required>
+          <label>Costo Unitario (auto)</label>
+          <input type="text" name="costo" id="venta-costo" placeholder="Se calcula automáticamente" readonly style="background:#1a1c2a;color:#9ca3af;cursor:not-allowed;">
         </div>
       </div>
       <div class="form-row">
@@ -353,13 +353,6 @@
         <div class="form-group">
           <label>Otros</label>
           <input type="number" name="otros" placeholder="0" value="0" min="0">
-        </div>
-        <div class="form-group">
-          <label>En Tránsito</label>
-          <select name="enTransito">
-            <option value="NO">No</option>
-            <option value="SI">Sí</option>
-          </select>
         </div>
       </div>
       <div class="form-actions">
@@ -673,12 +666,10 @@ async function submitVenta(e) {
       cliente: f.cliente.value,
       descripcion: f.descripcion.value,
       cantidad: f.cantidad.value,
-      costo: f.costo.value,
       precioVenta: f.precioVenta.value,
       envio: f.envio.value || '0',
       comision: f.comision.value || '0',
       otros: f.otros.value || '0',
-      enTransito: f.enTransito.value,
       fuente: f.fuente.value,
     };
 
