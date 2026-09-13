@@ -18,8 +18,12 @@ async function getSheetsClient(scope = 'spreadsheets') {
 }
 
 async function readTab(sheets, tabName, range = 'A1:Z2000') {
+  return readTabFrom(sheets, SPREADSHEET_ID, tabName, range);
+}
+
+async function readTabFrom(sheets, spreadsheetId, tabName, range = 'A1:Z2000') {
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId,
     range: `'${tabName}'!${range}`,
   });
   const rows = res.data.values || [];
@@ -32,6 +36,14 @@ async function readTab(sheets, tabName, range = 'A1:Z2000') {
     headers.forEach((h, i) => { obj[h.trim()] = (r[i] || '').trim(); });
     return obj;
   });
+}
+
+async function readRaw(sheets, spreadsheetId, tabName, range = 'A1:Z2000') {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${tabName}'!${range}`,
+  });
+  return res.data.values || [];
 }
 
 function parseMoney(val) {
@@ -85,6 +97,8 @@ async function setFormulas(sheets, tabName, row, formulas) {
 module.exports = {
   getSheetsClient,
   readTab,
+  readTabFrom,
+  readRaw,
   parseMoney,
   parsePercent,
   appendRow,

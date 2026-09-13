@@ -2,6 +2,6 @@
   "version": 2,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/sergio", "destination": "/sergio.html" }
+    { "source": "/btc", "destination": "/btc.html" }
   ]
 }

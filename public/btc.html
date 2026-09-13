@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTC - Dashboard Proyecto</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#0f1117;--card:#1a1d2e;--border:#2a2d3e;--text:#e4e4e7;--muted:#9ca3af;--accent:#6366f1;--green:#22c55e;--red:#ef4444;--orange:#f59e0b;--cyan:#06b6d4;--pink:#ec4899}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+    #loadingOverlay{position:fixed;inset:0;background:rgba(15,17,23,.92);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:16px}
+    .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{color:var(--muted);font-size:14px}
+    #errorOverlay{position:fixed;inset:0;background:rgba(15,17,23,.95);display:none;align-items:center;justify-content:center;z-index:1001;flex-direction:column;gap:16px;padding:24px}
+    .error-box{background:var(--card);border:1px solid var(--red);border-radius:12px;padding:32px;max-width:500px;text-align:center}
+    .error-box h2{color:var(--red);margin-bottom:12px}
+    .error-box p{color:var(--muted);font-size:14px;line-height:1.6}
+    .error-box button{margin-top:16px;background:var(--accent);color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px}
+    .nav{display:flex;gap:4px;padding:12px 24px;background:#13151f;border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:100;align-items:center}
+    .nav-btn{background:transparent;border:none;color:var(--muted);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;transition:all .2s}
+    .nav-btn:hover{background:var(--card);color:var(--text)}
+    .nav-btn.active{background:var(--accent);color:#fff}
+    .nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+    #lastUpdated{font-size:12px;color:var(--muted)}
+    .refresh-btn{background:var(--card);border:1px solid var(--border);color:var(--text)}
+    .refresh-btn:hover{border-color:var(--accent)}
+    .container{max-width:1400px;margin:0 auto;padding:24px}
+    .section{display:none}.section.active{display:block}
+    h1{font-size:24px;font-weight:700;margin-bottom:4px}
+    h2{font-size:18px;font-weight:600;margin-bottom:16px;color:var(--accent)}
+    .subtitle{color:var(--muted);font-size:14px;margin-bottom:24px}
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+    .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+    .kpi-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .kpi-value{font-size:28px;font-weight:700}
+    .kpi-sub{font-size:12px;color:var(--muted);margin-top:4px}
+    .kpi-green .kpi-value{color:var(--green)}.kpi-red .kpi-value{color:var(--red)}.kpi-accent .kpi-value{color:var(--accent)}.kpi-orange .kpi-value{color:var(--orange)}.kpi-cyan .kpi-value{color:var(--cyan)}
+    .chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+    .chart-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+    .chart-box canvas{max-height:320px}
+    @media(max-width:900px){.chart-row{grid-template-columns:1fr}}
+    .table-wrap{overflow-x:auto;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden}
+    th{background:#13151f;padding:12px 16px;text-align:left;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+    td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px}
+    tr:last-child td{border-bottom:none}tr:hover td{background:rgba(99,102,241,.06)}
+    .num{text-align:right;font-variant-numeric:tabular-nums}
+    .positive{color:var(--green)}.negative{color:var(--red)}
+    .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600}
+    .badge-green{background:rgba(34,197,94,.15);color:var(--green)}.badge-red{background:rgba(239,68,68,.15);color:var(--red)}.badge-orange{background:rgba(245,158,11,.15);color:var(--orange)}
+    .inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+    .inv-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+    .inv-denom{font-size:20px;font-weight:700;color:var(--accent)}
+    .inv-qty{font-size:32px;font-weight:700;margin:8px 0}
+    .inv-total{font-size:12px;color:var(--muted)}
+    .flow-container{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin:24px 0}
+    .flow-box{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:20px 28px;text-align:center;min-width:160px}
+    .flow-box.in{border-color:var(--green)}.flow-box.out{border-color:var(--red)}.flow-box.net{border-color:var(--accent)}
+    .flow-arrow{font-size:28px;color:var(--muted)}
+    .flow-label{font-size:11px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+    .flow-value{font-size:22px;font-weight:700}
+  </style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Cargando datos...</div>
+</div>
+
+<div id="errorOverlay">
+  <div class="error-box">
+    <h2>Error al cargar datos</h2>
+    <p id="errorMessage"></p>
+    <button onclick="location.reload()">Reintentar</button>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" data-section="resumen">Resumen General</button>
+  <button class="nav-btn" data-section="interes">Interes por Mes</button>
+  <button class="nav-btn" data-section="pasos">Pasos Dinero</button>
+  <button class="nav-btn" data-section="prestamos">Prestamos</button>
+  <button class="nav-btn" data-section="compras">Compras</button>
+  <button class="nav-btn" data-section="ventas">Ventas</button>
+  <button class="nav-btn" data-section="inventario">Inventario</button>
+  <button class="nav-btn" data-section="pagos">Pagos Mensuales</button>
+  <button class="nav-btn" data-section="gastos">Gastos</button>
+  <div class="nav-right">
+    <span id="lastUpdated"></span>
+    <button id="refreshBtn" class="nav-btn refresh-btn">↻ Actualizar</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div id="resumen" class="section active">
+    <h1>Nuevo Proyecto - Resumen General</h1>
+    <p class="subtitle">Datos en vivo desde Google Sheets</p>
+    <div class="kpi-grid" id="kpiResumen"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Distribucion de Activos</h2><canvas id="chartActivos"></canvas></div>
+      <div class="chart-box"><h2>Salidas vs Entradas por Categoria</h2><canvas id="chartFlujo"></canvas></div>
+    </div>
+    <h2>Resumen por Socio</h2>
+    <div class="table-wrap"><table id="tableResumen"></table></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Participacion por Socio</h2><canvas id="chartSocios"></canvas></div>
+      <div class="chart-box"><h2>Efectivo por Socio</h2><canvas id="chartEfectivo"></canvas></div>
+    </div>
+  </div>
+
+  <div id="interes" class="section">
+    <h1>Interes por Mes</h1>
+    <p class="subtitle">Rendimiento generado por los prestamos</p>
+    <div class="kpi-grid" id="kpiInteres"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Salidas vs Entradas</h2><canvas id="chartInteresCat"></canvas></div>
+      <div class="chart-box"><h2>Ganancia por Categoria</h2><canvas id="chartGanancia"></canvas></div>
+    </div>
+  </div>
+
+  <div id="pasos" class="section">
+    <h1>Pasos Dinero</h1>
+    <p class="subtitle">Movimientos internos de dinero entre socios</p>
+    <div class="kpi-grid" id="kpiPasos"></div>
+    <h2>Flujo de Caja Global</h2>
+    <div class="flow-container" id="flowDiagram"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Por Categoria</h2><canvas id="chartPasosCat"></canvas></div>
+      <div class="chart-box"><h2>Por Socio</h2><canvas id="chartPasosSocio"></canvas></div>
+    </div>
+    <h2>Detalle por Socio</h2>
+    <div class="table-wrap"><table id="tablePasos"></table></div>
+  </div>
+
+  <div id="prestamos" class="section">
+    <h1>Prestamos del Proyecto</h1>
+    <p class="subtitle">Prestamos realizados y recuperados</p>
+    <div class="kpi-grid" id="kpiPrestamos"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Salida vs Entrada por Socio</h2><canvas id="chartPrestamos"></canvas></div>
+      <div class="chart-box"><h2>Recuperacion de Cartera</h2><canvas id="chartRecuperacion"></canvas></div>
+    </div>
+    <h2>Detalle por Socio</h2>
+    <div class="table-wrap"><table id="tablePrestamos"></table></div>
+  </div>
+
+  <div id="compras" class="section">
+    <h1>Compras del Proyecto</h1>
+    <p class="subtitle">Productos comprados para reventa</p>
+    <div class="kpi-grid" id="kpiCompras"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Compras por Socio</h2><canvas id="chartCompras"></canvas></div>
+      <div class="chart-box"><h2>Participacion</h2><canvas id="chartComprasPie"></canvas></div>
+    </div>
+    <h2>Detalle por Socio</h2>
+    <div class="table-wrap"><table id="tableCompras"></table></div>
+  </div>
+
+  <div id="ventas" class="section">
+    <h1>Ventas del Proyecto</h1>
+    <p class="subtitle">Ventas realizadas</p>
+    <div class="kpi-grid" id="kpiVentas"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Ventas por Socio</h2><canvas id="chartVentas"></canvas></div>
+      <div class="chart-box"><h2>Compras vs Ventas</h2><canvas id="chartCompVentas"></canvas></div>
+    </div>
+  </div>
+
+  <div id="inventario" class="section">
+    <h1>Inventario</h1>
+    <p class="subtitle">Productos y efectivo disponible</p>
+    <div class="kpi-grid" id="kpiInventario"></div>
+    <h2>Denominaciones en Efectivo</h2>
+    <div class="inv-grid" id="invGrid"></div>
+    <div class="chart-row" style="margin-top:24px">
+      <div class="chart-box"><h2>Composicion del Inventario</h2><canvas id="chartInventario"></canvas></div>
+      <div class="chart-box"><h2>Resumen de Activos</h2><canvas id="chartActivosInv"></canvas></div>
+    </div>
+  </div>
+
+  <div id="pagos" class="section">
+    <h1>Pagos Mensuales</h1>
+    <p class="subtitle">Inversion que inyecta cada socio</p>
+    <div class="kpi-grid" id="kpiPagos"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Pagos por Socio</h2><canvas id="chartPagos"></canvas></div>
+      <div class="chart-box"><h2>Participacion en Inversion</h2><canvas id="chartPagosPie"></canvas></div>
+    </div>
+    <h2>Detalle</h2>
+    <div class="table-wrap"><table id="tablePagos"></table></div>
+  </div>
+
+  <div id="gastos" class="section">
+    <h1>Gastos</h1>
+    <p class="subtitle">Gastos operativos del proyecto</p>
+    <div class="kpi-grid" id="kpiGastos"></div>
+    <div class="chart-row">
+      <div class="chart-box"><h2>Gastos por Socio</h2><canvas id="chartGastos"></canvas></div>
+      <div class="chart-box"><h2>Participacion</h2><canvas id="chartGastosPie"></canvas></div>
+    </div>
+    <h2>Detalle por Socio</h2>
+    <div class="table-wrap"><table id="tableGastos"></table></div>
+  </div>
+
+</div>
+
+<script>
+const fmt = n => '$' + (n||0).toLocaleString('es-CO');
+const COLORS = ['#6366f1','#22c55e','#f59e0b','#06b6d4','#ec4899','#8b5cf6'];
+
+function parseMoney(s){
+  if(!s||typeof s!=='string')return 0;
+  s=s.replace(/[$\s"]/g,'');
+  if(s.includes(',')){s=s.replace(/\./g,'').replace(',','.');}
+  else{s=s.replace(/\./g,'');}
+  return parseFloat(s)||0;
+}
+function parsePercent(s){return parseFloat((s||'').replace('%','').replace(',','.').replace(/\s/g,''))||0;}
+
+function findRow(rows,marker,col=0){for(let i=0;i<rows.length;i++){if(rows[i][col]&&rows[i][col].includes(marker))return i;}return -1;}
+function findRowAny(rows,marker){for(let i=0;i<rows.length;i++){if(rows[i].some(c=>c&&c.includes(marker)))return i;}return -1;}
+
+async function fetchMain(){
+  const r=await fetch('/api/btc');
+  if(!r.ok)throw new Error('Error al cargar datos del servidor');
+  const data=await r.json();
+  if(data.error)throw new Error(data.error);
+  return data.rows;
+}
+
+function extract(r){
+  const d={partners:[],categories:null,activos:null,personDetails:[],inventory:[]};
+
+  for(let i=1;i<=4&&r[i];i++){
+    d.partners.push({name:r[i][0],recibe:parseMoney(r[i][1]),inversion:parseMoney(r[i][2]),ganancia:parseMoney(r[i][3])});
+  }
+  d.totalInversion=parseMoney(r[5]?.[1]);
+
+  d.levelPrestamos={anteriorBayron:parseMoney(r[1]?.[5]),anteriorPatino:parseMoney(r[2]?.[5]),total:parseMoney(r[3]?.[5])};
+
+  const ci=findRow(r,'Prestamos',0);
+  if(ci>=0){
+    d.categories={
+      prestamos:{salidas:parseMoney(r[ci][1]),entradas:parseMoney(r[ci][2]),ganancias:parseMoney(r[ci][3])},
+      comprasVentas:{salidas:parseMoney(r[ci+1][1]),entradas:parseMoney(r[ci+1][2]),ganancias:parseMoney(r[ci+1][3])},
+      inversiones:{salidas:parseMoney(r[ci+2][1]),entradas:parseMoney(r[ci+2][2])},
+      gastos:{salidas:parseMoney(r[ci+3][1])},
+      total:{salidas:parseMoney(r[ci+4][1]),entradas:parseMoney(r[ci+4][2])}
+    };
+    d.rendimientoInversiones=parseMoney(r[ci]?.[5]);
+  }
+
+  const ai=findRow(r,'Activos',0);
+  if(ai>=0){
+    d.activos={totalActivos:parseMoney(r[ai][1]),saldo:parseMoney(r[ai+1][1]),prestado:parseMoney(r[ai+2][1]),inversiones:parseMoney(r[ai+3][1]),total:parseMoney(r[ai+4][1])};
+    d.inversionActual=parseMoney(r[ai+1]?.[3]);
+    d.fechaInicio=r[ai+1]?.[5]||'';d.fechaHoy=r[ai+1]?.[6]||'';
+    d.anos=parseFloat((r[ai+1]?.[7]||'').replace(',','.'))||0;
+    d.dias=parseMoney(r[ai+1]?.[8])||0;
+    d.rentabilidad=parsePercent(r[ai+2]?.[3]);d.rentabilidadAnual=parsePercent(r[ai+2]?.[5]);
+  }
+
+  const di=findRow(r,'Efectivo',0);
+  if(di>=0){
+    for(let i=di+1;i<di+6&&r[i];i++){
+      if(r[i][0]&&/Juan|Daniel|Bayron|Pati/i.test(r[i][0])){
+        d.personDetails.push({
+          name:r[i][0],efectivo:parseMoney(r[i][1]),pagosMensuales:parseMoney(r[i][2]),
+          compras:parseMoney(r[i][3]),prestamosSalida:parseMoney(r[i][4]),
+          prestamosEntrada:parseMoney(r[i][5]),ventas:parseMoney(r[i][6]),
+          pasosEntrada:parseMoney(r[i][7]),pasosSalida:parseMoney(r[i][8]),
+          inversionesSalida:parseMoney(r[i][9]),inversionesEntrada:parseMoney(r[i][10]),
+          gastos:parseMoney(r[i][12])
+        });
+      }
+    }
+  }
+
+  const ii=findRowAny(r,'Cuadre');
+  if(ii>=0){
+    for(let i=ii;i<r.length&&i<ii+20;i++){
+      const denom=r[i]?.[16];
+      if(denom&&denom.startsWith('$'))d.inventory.push({denom:denom.trim(),qty:parseInt(r[i][17])||0,subtotal:parseMoney(r[i][18])});
+      if(r[i]?.[15]?.includes('Saldo a Cobrar'))d.saldoCobrar=parseMoney(r[i][16]);
+      if(r[i]?.[15]?.match(/Saldo MELI$/))d.saldoMeli=parseMoney(r[i][16]);
+      if(r[i]?.[17]?.includes('Total')){d.totalInventario=parseMoney(r[i][18]);d.diferencia=parseMoney(r[i][19]);}
+    }
+  }
+  for(let i=r.length-1;i>=0;i--){if(r[i]?.[15]?.includes('Saldo Meli Actual')){d.saldoMeliActual=parseMoney(r[i][16]);break;}}
+
+  return d;
+}
+
+const charts={};
+function destroyCharts(){Object.values(charts).forEach(c=>c?.destroy?.());Object.keys(charts).forEach(k=>delete charts[k]);}
+function mk(id,cfg){const el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg);}
+
+function createCharts(d){
+  destroyCharts();
+  Chart.defaults.color='#9ca3af';Chart.defaults.borderColor='#2a2d3e';
+
+  if(d.activos){
+    mk('chartActivos',{type:'doughnut',data:{labels:['Saldo','Prestado','Inversiones'],datasets:[{data:[d.activos.saldo,d.activos.prestado,d.activos.inversiones],backgroundColor:['#06b6d4','#6366f1','#f59e0b'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+  }
+
+  if(d.categories){
+    const c=d.categories;
+    mk('chartFlujo',{type:'bar',data:{labels:['Prestamos','Compras/Ventas','Inversiones','Gastos'],datasets:[{label:'Salidas',data:[c.prestamos.salidas,c.comprasVentas.salidas,c.inversiones.salidas,c.gastos.salidas],backgroundColor:'rgba(239,68,68,.7)'},{label:'Entradas',data:[c.prestamos.entradas,c.comprasVentas.entradas,c.inversiones.entradas,0],backgroundColor:'rgba(34,197,94,.7)'}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}},plugins:{legend:{position:'bottom'}}}});
+    mk('chartInteresCat',{type:'bar',data:{labels:['Prestamos','Compras/Ventas','Inversiones'],datasets:[{label:'Salidas',data:[c.prestamos.salidas,c.comprasVentas.salidas,c.inversiones.salidas],backgroundColor:'rgba(239,68,68,.7)'},{label:'Entradas',data:[c.prestamos.entradas,c.comprasVentas.entradas,c.inversiones.entradas],backgroundColor:'rgba(34,197,94,.7)'}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}},plugins:{legend:{position:'bottom'}}}});
+    mk('chartGanancia',{type:'doughnut',data:{labels:['Prestamos','Compras/Ventas'],datasets:[{data:[c.prestamos.ganancias,c.comprasVentas.ganancias],backgroundColor:['#6366f1','#22c55e'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+  }
+
+  if(d.personDetails.length){
+    const p=d.personDetails;
+    mk('chartSocios',{type:'pie',data:{labels:d.partners.map(x=>x.name),datasets:[{data:d.partners.map(x=>x.recibe),backgroundColor:COLORS,borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+    mk('chartEfectivo',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Efectivo',data:p.map(x=>x.efectivo),backgroundColor:COLORS,borderRadius:6}]},options:{responsive:true,indexAxis:'y',scales:{x:{ticks:{callback:v=>fmt(v)}}}}});
+    mk('chartPasosCat',{type:'bar',data:{labels:['Prestamos','Compras/Ventas','Inversiones','Gastos'],datasets:[{label:'Entradas',data:[d.categories?.prestamos.entradas||0,d.categories?.comprasVentas.entradas||0,d.categories?.inversiones.entradas||0,0],backgroundColor:'rgba(34,197,94,.7)'},{label:'Salidas',data:[d.categories?.prestamos.salidas||0,d.categories?.comprasVentas.salidas||0,d.categories?.inversiones.salidas||0,d.categories?.gastos.salidas||0],backgroundColor:'rgba(239,68,68,.7)'}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}},plugins:{legend:{position:'bottom'}}}});
+    mk('chartPasosSocio',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Entradas',data:p.map(x=>x.pasosEntrada),backgroundColor:'rgba(34,197,94,.7)'},{label:'Salidas',data:p.map(x=>x.pasosSalida),backgroundColor:'rgba(239,68,68,.7)'}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}},plugins:{legend:{position:'bottom'}}}});
+    mk('chartPrestamos',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Prestado',data:p.map(x=>x.prestamosSalida),backgroundColor:'rgba(239,68,68,.7)'},{label:'Recuperado',data:p.map(x=>x.prestamosEntrada),backgroundColor:'rgba(34,197,94,.7)'}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}},plugins:{legend:{position:'bottom'}}}});
+
+    const tP=p.reduce((s,x)=>s+x.prestamosSalida,0),tR=p.reduce((s,x)=>s+x.prestamosEntrada,0);
+    mk('chartRecuperacion',{type:'doughnut',data:{labels:['Recuperado','Pendiente'],datasets:[{data:[tR,Math.max(0,tP-tR)],backgroundColor:['#22c55e','#f59e0b'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+    mk('chartCompras',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Compras',data:p.map(x=>x.compras),backgroundColor:COLORS,borderRadius:6}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+    mk('chartComprasPie',{type:'pie',data:{labels:p.map(x=>x.name),datasets:[{data:p.map(x=>x.compras),backgroundColor:COLORS,borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+    mk('chartVentas',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Ventas',data:p.map(x=>x.ventas),backgroundColor:COLORS,borderRadius:6}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+    mk('chartCompVentas',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Compras',data:p.map(x=>x.compras),backgroundColor:'rgba(239,68,68,.7)'},{label:'Ventas',data:p.map(x=>x.ventas),backgroundColor:'rgba(34,197,94,.7)'}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}},plugins:{legend:{position:'bottom'}}}});
+    mk('chartPagos',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Pagos',data:p.map(x=>x.pagosMensuales),backgroundColor:COLORS,borderRadius:6}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+    mk('chartPagosPie',{type:'pie',data:{labels:p.map(x=>x.name),datasets:[{data:p.map(x=>x.pagosMensuales),backgroundColor:COLORS,borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+
+    const gc=['#ef4444','#f59e0b','#06b6d4','#6366f1'];
+    mk('chartGastos',{type:'bar',data:{labels:p.map(x=>x.name),datasets:[{label:'Gastos',data:p.map(x=>x.gastos),backgroundColor:gc,borderRadius:6}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+    mk('chartGastosPie',{type:'doughnut',data:{labels:p.map(x=>x.name),datasets:[{data:p.map(x=>x.gastos),backgroundColor:gc,borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+  }
+
+  if(d.inventory.length){
+    mk('chartInventario',{type:'bar',data:{labels:d.inventory.map(i=>i.denom),datasets:[{label:'Valor',data:d.inventory.map(i=>i.subtotal),backgroundColor:COLORS,borderRadius:6}]},options:{responsive:true,scales:{y:{ticks:{callback:v=>fmt(v)}}}}});
+    mk('chartActivosInv',{type:'doughnut',data:{labels:['Efectivo Fisico','Saldo MELI','Saldo a Cobrar'],datasets:[{data:[d.inventory.reduce((s,i)=>s+i.subtotal,0),d.saldoMeli||0,d.saldoCobrar||0],backgroundColor:['#6366f1','#f59e0b','#22c55e'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+  }
+}
+
+function kpiHTML(items){return items.map(k=>`<div class="kpi ${k.cls||''}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div>${k.sub?`<div class="kpi-sub">${k.sub}</div>`:''}</div>`).join('');}
+
+function updateUI(d){
+  document.getElementById('kpiResumen').innerHTML=kpiHTML([
+    {label:'Total Invertido',value:fmt(d.totalInversion),sub:'4 socios',cls:'kpi-accent'},
+    {label:'Ganancia Actual',value:fmt(d.partners[0]?.ganancia||0),sub:'Por socio',cls:'kpi-green'},
+    {label:'Activos Totales',value:fmt(d.activos?.total||0),cls:'kpi-cyan'},
+    {label:'Rentabilidad',value:(d.rentabilidad||0)+'%',sub:'Anual: '+(d.rentabilidadAnual||0)+'%',cls:'kpi-orange'},
+    {label:'Tiempo Activo',value:`${Math.floor(d.anos||0)} años y ${Math.round(((d.anos||0)%1)*365)} dias`,sub:'Desde '+(d.fechaInicio||''),cls:''},
+    {label:'Saldo Disponible',value:fmt(d.activos?.saldo||0),cls:'kpi-green'}
+  ]);
+
+  document.getElementById('tableResumen').innerHTML=`<thead><tr><th>Socio</th><th class="num">Recibe</th><th class="num">Inversion</th><th class="num">Ganancia</th><th class="num">Efectivo</th><th class="num">Rendimiento</th></tr></thead><tbody>${d.partners.map((p,i)=>`<tr><td><strong>${p.name}</strong></td><td class="num">${fmt(p.recibe)}</td><td class="num">${fmt(p.inversion)}</td><td class="num positive">${fmt(p.ganancia)}</td><td class="num">${fmt(d.personDetails[i]?.efectivo||0)}</td><td class="num"><span class="badge badge-green">${d.rentabilidad||0}%</span></td></tr>`).join('')}</tbody>`;
+
+  document.getElementById('kpiInteres').innerHTML=kpiHTML([
+    {label:'Total Intereses',value:fmt(d.categories?.prestamos.ganancias||0),cls:'kpi-green'},
+    {label:'Rendimiento Inversiones',value:fmt(d.rendimientoInversiones||0),cls:'kpi-cyan'},
+    {label:'Ganancia Compras/Ventas',value:fmt(d.categories?.comprasVentas.ganancias||0),cls:'kpi-accent'}
+  ]);
+
+  const te=d.categories?.total.entradas||0,ts=d.categories?.total.salidas||0;
+  document.getElementById('kpiPasos').innerHTML=kpiHTML([
+    {label:'Total Entradas',value:fmt(te),cls:'kpi-green'},
+    {label:'Total Salidas',value:fmt(ts),cls:'kpi-red'},
+    {label:'Saldo MELI',value:fmt(d.saldoMeli||0),cls:'kpi-orange'}
+  ]);
+  document.getElementById('flowDiagram').innerHTML=`<div class="flow-box out"><div class="flow-label">Salidas</div><div class="flow-value" style="color:var(--red)">${fmt(ts)}</div></div><div class="flow-arrow">&rarr;</div><div class="flow-box net"><div class="flow-label">Diferencia</div><div class="flow-value" style="color:var(--orange)">${fmt(te-ts)}</div></div><div class="flow-arrow">&larr;</div><div class="flow-box in"><div class="flow-label">Entradas</div><div class="flow-value" style="color:var(--green)">${fmt(te)}</div></div>`;
+
+  document.getElementById('tablePasos').innerHTML=`<thead><tr><th>Socio</th><th class="num">Entradas</th><th class="num">Salidas</th><th class="num">Neto</th></tr></thead><tbody>${d.personDetails.map(p=>{const n=p.pasosEntrada-p.pasosSalida;return`<tr><td><strong>${p.name}</strong></td><td class="num positive">${fmt(p.pasosEntrada)}</td><td class="num negative">${fmt(p.pasosSalida)}</td><td class="num ${n>=0?'positive':'negative'}">${n>=0?'+':''}${fmt(n)}</td></tr>`;}).join('')}</tbody>`;
+
+  const tPr=d.personDetails.reduce((s,p)=>s+p.prestamosSalida,0),tRe=d.personDetails.reduce((s,p)=>s+p.prestamosEntrada,0);
+  document.getElementById('kpiPrestamos').innerHTML=kpiHTML([
+    {label:'Total Prestado',value:fmt(tPr),cls:'kpi-red'},
+    {label:'Total Recuperado',value:fmt(tRe),cls:'kpi-green'},
+    {label:'Prestado Vigente',value:fmt(d.activos?.prestado||0),cls:'kpi-orange'},
+    {label:'Ganancia Intereses',value:fmt(d.categories?.prestamos.ganancias||0),cls:'kpi-accent'}
+  ]);
+  document.getElementById('tablePrestamos').innerHTML=`<thead><tr><th>Socio</th><th class="num">Prestado</th><th class="num">Recuperado</th><th class="num">Pendiente</th><th class="num">% Recuperado</th></tr></thead><tbody>${d.personDetails.map(p=>{const pct=p.prestamosSalida?((p.prestamosEntrada/p.prestamosSalida)*100).toFixed(1):0;const pen=p.prestamosEntrada-p.prestamosSalida;return`<tr><td><strong>${p.name}</strong></td><td class="num">${fmt(p.prestamosSalida)}</td><td class="num">${fmt(p.prestamosEntrada)}</td><td class="num ${pen>=0?'positive':'negative'}">${pen>=0?'+':''}${fmt(pen)}</td><td class="num"><span class="badge ${pct>=100?'badge-green':'badge-orange'}">${pct}%</span></td></tr>`;}).join('')}</tbody>`;
+
+  const tC=d.personDetails.reduce((s,p)=>s+p.compras,0),tV=d.personDetails.reduce((s,p)=>s+p.ventas,0);
+  document.getElementById('kpiCompras').innerHTML=kpiHTML([
+    {label:'Total Compras',value:fmt(tC),cls:'kpi-red'},
+    {label:'Total Vendido',value:fmt(tV),cls:'kpi-green'},
+    {label:'Margen',value:tC?(((tV-tC)/tC)*100).toFixed(1)+'%':'0%',cls:'kpi-orange'}
+  ]);
+  document.getElementById('tableCompras').innerHTML=`<thead><tr><th>Socio</th><th class="num">Compras</th><th class="num">Ventas</th><th class="num">Diferencia</th></tr></thead><tbody>${d.personDetails.map(p=>{const df=p.ventas-p.compras;return`<tr><td><strong>${p.name}</strong></td><td class="num">${fmt(p.compras)}</td><td class="num">${fmt(p.ventas)}</td><td class="num ${df>=0?'positive':'negative'}">${df>=0?'+':''}${fmt(df)}</td></tr>`;}).join('')}</tbody>`;
+
+  const top=d.personDetails.reduce((a,b)=>a.ventas>b.ventas?a:b,d.personDetails[0]);
+  document.getElementById('kpiVentas').innerHTML=kpiHTML([
+    {label:'Total Vendido',value:fmt(tV),cls:'kpi-green'},
+    {label:'Vendedor Top',value:top?.name||'-',sub:fmt(top?.ventas||0),cls:'kpi-accent'}
+  ]);
+
+  document.getElementById('kpiInventario').innerHTML=kpiHTML([
+    {label:'Valor Total Inventario',value:fmt(d.totalInventario||0),cls:'kpi-cyan'},
+    {label:'Saldo a Cobrar',value:fmt(d.saldoCobrar||0),cls:'kpi-green'},
+    {label:'Saldo MELI',value:fmt(d.saldoMeli||0),cls:'kpi-orange'},
+    {label:'Diferencia',value:fmt(d.diferencia||0),sub:'Falta(+) o Sobra(-)',cls:''}
+  ]);
+  document.getElementById('invGrid').innerHTML=d.inventory.map(i=>`<div class="inv-item"><div class="inv-denom">${i.denom}</div><div class="inv-qty">${i.qty}</div><div class="inv-total">${fmt(i.subtotal)}</div></div>`).join('');
+
+  document.getElementById('kpiPagos').innerHTML=kpiHTML([
+    {label:'Total Invertido',value:fmt(d.totalInversion||0),cls:'kpi-accent'},
+    {label:'Inversion por Socio',value:fmt(d.partners[0]?.inversion||0),cls:'kpi-green'}
+  ]);
+  document.getElementById('tablePagos').innerHTML=`<thead><tr><th>Socio</th><th class="num">Total Pagado</th><th class="num">% del Total</th><th class="num">Ganancia</th></tr></thead><tbody>${d.partners.map(p=>{const pct=d.totalInversion?((p.inversion/d.totalInversion)*100).toFixed(1):0;return`<tr><td><strong>${p.name}</strong></td><td class="num">${fmt(p.inversion)}</td><td class="num">${pct}%</td><td class="num positive">${fmt(p.ganancia)}</td></tr>`;}).join('')}</tbody>`;
+
+  const tG=d.personDetails.reduce((s,p)=>s+p.gastos,0);
+  document.getElementById('kpiGastos').innerHTML=kpiHTML([
+    {label:'Total Gastos',value:fmt(tG),cls:'kpi-red'},
+    {label:'% de Salidas',value:ts?(tG/ts*100).toFixed(1)+'%':'0%',sub:'Del total de salidas',cls:'kpi-orange'}
+  ]);
+  document.getElementById('tableGastos').innerHTML=`<thead><tr><th>Socio</th><th class="num">Gastos</th><th class="num">% del Total</th></tr></thead><tbody>${d.personDetails.map(p=>{const pct=tG?(p.gastos/tG*100).toFixed(1):0;return`<tr><td><strong>${p.name}</strong></td><td class="num negative">${fmt(p.gastos)}</td><td class="num">${pct}%</td></tr>`;}).join('')}</tbody>`;
+}
+
+document.querySelectorAll('.nav-btn[data-section]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-btn[data-section]').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.section).classList.add('active');
+  });
+});
+
+let currentData=null;
+
+async function load(){
+  document.getElementById('loadingOverlay').style.display='flex';
+  document.getElementById('errorOverlay').style.display='none';
+  try{
+    const raw=await fetchMain();
+    currentData=extract(raw);
+    createCharts(currentData);
+    updateUI(currentData);
+    document.getElementById('loadingOverlay').style.display='none';
+    document.getElementById('lastUpdated').textContent=new Date().toLocaleTimeString('es-CO');
+  }catch(e){
+    document.getElementById('loadingOverlay').style.display='none';
+    document.getElementById('errorMessage').textContent=e.message;
+    document.getElementById('errorOverlay').style.display='flex';
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click',load);
+
+load();
+</script>
+</body>
+</html>
