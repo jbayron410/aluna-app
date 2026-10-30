@@ -24,6 +24,11 @@ module.exports = async (req, res) => {
     const totalMeli = ventasMeli.reduce((s, r) => s + parseMoney(r['Total']), 0);
     const totalFisico = ventasFisico.reduce((s, r) => s + parseMoney(r['Total']), 0);
     const inventarioActivo = inventario.filter(r => (r['Activo'] || '').replace(/[^0-9]/g, '') !== '0' && r['Activo'] !== '');
+    const outOfStockInventory = inventario.filter(r => {
+      if (!r['Codigo']) return false;
+      const isActive = (r['Activo'] || '').replace(/[^0-9]/g, '') !== '0' && r['Activo'] !== '';
+      return !isActive;
+    });
     const valorInventario = inventarioActivo.reduce((s, r) => s + parseMoney(r['Activo']), 0);
 
     const ventasPorMes = {};
@@ -97,6 +102,7 @@ module.exports = async (req, res) => {
       fuentePorMes: Object.entries(fuentePorMes).sort((a, b) => a[0].localeCompare(b[0])),
       comprasPendientes,
       inventario: inventarioActivo,
+      outOfStockInventory,
       ventasRecientes: ventas.slice(-20).reverse(),
       comprasRecientes: compras.slice(-20).reverse(),
     });

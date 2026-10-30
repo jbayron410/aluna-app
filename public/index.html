@@ -126,6 +126,12 @@
     border: 1px solid rgba(239, 68, 68, 0.35);
     margin-left: 0.4rem;
   }
+  .badge-zero-stock {
+    background: rgba(156, 163, 175, 0.18);
+    color: var(--muted);
+    border: 1px solid rgba(156, 163, 175, 0.35);
+    margin-left: 0.4rem;
+  }
   .badge-low-stock-summary {
     background: rgba(249, 115, 22, 0.16);
     color: var(--orange);
@@ -141,6 +147,16 @@
   }
   tr.low-stock-row td:first-child {
     box-shadow: inset 3px 0 0 var(--red);
+  }
+  tr.zero-stock-row td {
+    background: rgba(156, 163, 175, 0.05);
+    color: var(--muted);
+  }
+  tr.zero-stock-row:hover td {
+    background: rgba(156, 163, 175, 0.1);
+  }
+  tr.zero-stock-row td:first-child {
+    box-shadow: inset 3px 0 0 var(--muted);
   }
   .inventory-header {
     display: flex;
@@ -207,6 +223,26 @@
     background: rgba(239, 68, 68, 0.18);
     border-color: var(--red);
     color: #fca5a5;
+  }
+  .zero-stock-filter-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .zero-stock-filter-btn:hover {
+    border-color: var(--muted);
+    color: var(--text);
+  }
+  .zero-stock-filter-btn.active {
+    background: rgba(156, 163, 175, 0.22);
+    border-color: var(--text);
+    color: var(--text);
   }
   .text-right { text-align: right; }
   .text-green { color: var(--green); }
@@ -898,8 +934,9 @@ function getInitialLowStockThreshold() {
 }
 
 let lowStockThreshold = getInitialLowStockThreshold();
-let showOnlyLowStock = false;
+let inventoryFilterMode = 'active'; // 'active' | 'low' | 'zero'
 let currentInventoryItems = [];
+let outOfStockInventoryItems = [];
 
 function parseStockQuantity(rawStock) {
   if (rawStock === undefined || rawStock === null) return 0;
@@ -917,62 +954,93 @@ function updateLowStockThreshold(rawValue) {
 }
 
 function toggleLowStockFilter() {
-  showOnlyLowStock = !showOnlyLowStock;
+  inventoryFilterMode = inventoryFilterMode === 'low' ? 'active' : 'low';
+  renderInventorySection();
+}
+
+function toggleZeroStockFilter() {
+  inventoryFilterMode = inventoryFilterMode === 'zero' ? 'active' : 'zero';
   renderInventorySection();
 }
 
 function renderInventorySection() {
   const tbody = $('#inventory-table-body');
   const badgeContainer = $('#inventory-summary-badge');
-  const filterBtn = $('#low-stock-filter-btn');
-  if (!tbody || !badgeContainer || !filterBtn) return;
+  const lowFilterBtn = $('#low-stock-filter-btn');
+  const zeroFilterBtn = $('#zero-stock-filter-btn');
+  if (!tbody || !badgeContainer || !lowFilterBtn || !zeroFilterBtn) return;
 
   const lowStockCount = currentInventoryItems.filter(
     item => parseStockQuantity(item['Inventario']) <= lowStockThreshold
   ).length;
+  const zeroStockCount = outOfStockInventoryItems.length;
 
-  const visibleItems = showOnlyLowStock
-    ? currentInventoryItems.filter(item => parseStockQuantity(item['Inventario']) <= lowStockThreshold)
-    : currentInventoryItems;
+  let visibleItems = currentInventoryItems;
+  if (inventoryFilterMode === 'low') {
+    visibleItems = currentInventoryItems.filter(
+      item => parseStockQuantity(item['Inventario']) <= lowStockThreshold
+    );
+  } else if (inventoryFilterMode === 'zero') {
+    visibleItems = outOfStockInventoryItems;
+  }
 
   badgeContainer.innerHTML = lowStockCount > 0
     ? `<span class="badge badge-low-stock-summary">⚠️ ${lowStockCount} con stock bajo (≤ ${lowStockThreshold})</span>`
     : `<span class="badge badge-ok">✅ Stock saludable</span>`;
 
-  filterBtn.className = `low-stock-filter-btn ${showOnlyLowStock ? 'active' : ''}`;
-  filterBtn.textContent = showOnlyLowStock
-    ? `📋 Ver todos (${currentInventoryItems.length})`
+  lowFilterBtn.className = `low-stock-filter-btn ${inventoryFilterMode === 'low' ? 'active' : ''}`;
+  lowFilterBtn.textContent = inventoryFilterMode === 'low'
+    ? `📋 Ver activos (${currentInventoryItems.length})`
     : `🔍 Solo stock bajo (${lowStockCount})`;
 
-  tbody.innerHTML = visibleItems.length === 0
-    ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">No hay productos con ${lowStockThreshold} unidades o menos 🎉</td></tr>`
-    : visibleItems.map(item => {
-        const stockQuantity = parseStockQuantity(item['Inventario']);
-        const isLowStock = stockQuantity <= lowStockThreshold;
-        const lowStockBadge = isLowStock
-          ? `<span class="badge badge-low-stock">${stockQuantity <= 1 ? '🚨 Crítico' : '⚠️ Bajo'}</span>`
-          : '';
+  zeroFilterBtn.className = `zero-stock-filter-btn ${inventoryFilterMode === 'zero' ? 'active' : ''}`;
+  zeroFilterBtn.textContent = inventoryFilterMode === 'zero'
+    ? `📋 Ver activos (${currentInventoryItems.length})`
+    : `🚫 En cero (${zeroStockCount})`;
 
-        return `
-          <tr class="${isLowStock ? 'low-stock-row' : ''}">
-            <td style="font-family:monospace;font-size:0.75rem">${item['Codigo'] || '-'}</td>
-            <td>${item['Descripción'] || item['Descripcion'] || '-'}${lowStockBadge}</td>
-            <td class="text-right">${item['Entrada'] || '0'}</td>
-            <td class="text-right">${item['Salida'] || '0'}</td>
-            <td class="text-right" style="${isLowStock ? 'color:#fca5a5;font-weight:700' : ''}">
-              <strong>${item['Inventario'] || '0'}</strong>
-            </td>
-            <td class="text-right">${item['Costo promedio'] || '-'}</td>
-            <td class="text-right">${item['Activo'] || '-'}</td>
-          </tr>
-        `;
-      }).join('');
+  if (visibleItems.length === 0) {
+    const emptyMessage = inventoryFilterMode === 'zero'
+      ? 'No hay productos con inventario en cero ✅'
+      : `No hay productos con ${lowStockThreshold} unidades o menos 🎉`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">${emptyMessage}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = visibleItems.map(item => {
+    const stockQuantity = parseStockQuantity(item['Inventario']);
+    const isZeroStock = inventoryFilterMode === 'zero' || stockQuantity <= 0;
+    const isLowStock = !isZeroStock && stockQuantity <= lowStockThreshold;
+
+    let statusBadge = '';
+    if (isZeroStock) {
+      statusBadge = `<span class="badge badge-zero-stock">🚫 Agotado</span>`;
+    } else if (isLowStock) {
+      statusBadge = `<span class="badge badge-low-stock">${stockQuantity <= 1 ? '🚨 Crítico' : '⚠️ Bajo'}</span>`;
+    }
+
+    const rowClass = isZeroStock ? 'zero-stock-row' : (isLowStock ? 'low-stock-row' : '');
+
+    return `
+      <tr class="${rowClass}">
+        <td style="font-family:monospace;font-size:0.75rem">${item['Codigo'] || '-'}</td>
+        <td>${item['Descripción'] || item['Descripcion'] || '-'}${statusBadge}</td>
+        <td class="text-right">${item['Entrada'] || '0'}</td>
+        <td class="text-right">${item['Salida'] || '0'}</td>
+        <td class="text-right" style="${isLowStock ? 'color:#fca5a5;font-weight:700' : ''}">
+          <strong>${item['Inventario'] || '0'}</strong>
+        </td>
+        <td class="text-right">${item['Costo promedio'] || '-'}</td>
+        <td class="text-right">${item['Activo'] || '$0'}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function render(d) {
   const app = $('#app');
   const k = d.kpis;
   currentInventoryItems = d.inventario || [];
+  outOfStockInventoryItems = d.outOfStockInventory || [];
   populateSaleProductSelect(
     currentInventoryItems.map(item => ({
       codigo: item['Codigo'] || '',
@@ -1106,6 +1174,14 @@ function render(d) {
             onclick="toggleLowStockFilter()"
           >
             🔍 Solo stock bajo
+          </button>
+          <button
+            type="button"
+            id="zero-stock-filter-btn"
+            class="zero-stock-filter-btn"
+            onclick="toggleZeroStockFilter()"
+          >
+            🚫 En cero
           </button>
         </div>
       </div>
