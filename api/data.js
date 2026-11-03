@@ -18,6 +18,10 @@ module.exports = async (req, res) => {
 
     const totalCompras = compras.reduce((s, r) => s + parseMoney(r['Total']), 0);
     const totalVentas = ventas.reduce((s, r) => s + parseMoney(r['Total']), 0);
+    const cashPurchases = compras
+      .filter(r => (r['Quien Entrega'] || '').trim().toLowerCase() === 'caja')
+      .reduce((s, r) => s + parseMoney(r['Total']), 0);
+    const availableCash = totalVentas - cashPurchases;
     const totalGanancia = ventas.reduce((s, r) => s + parseMoney(r['Ganancia']), 0);
     const ventasMeli = ventas.filter(r => (r['FUENTE'] || '').toUpperCase() === 'MELI');
     const ventasFisico = ventas.filter(r => (r['FUENTE'] || '').toUpperCase() === 'FISICO');
@@ -85,6 +89,8 @@ module.exports = async (req, res) => {
       kpis: {
         totalCompras,
         totalVentas,
+        cashPurchases,
+        availableCash,
         totalGanancia,
         margenGeneral: totalVentas > 0 ? ((totalGanancia / totalVentas) * 100).toFixed(1) : 0,
         totalMeli,

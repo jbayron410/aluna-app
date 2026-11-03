@@ -505,6 +505,7 @@
           <label>Quién Entrega</label>
           <select name="quienEntrega" required>
             <option value="">Seleccionar...</option>
+            <option value="Caja">💰 Caja (Reinversión)</option>
             <option value="Bayron">Bayron</option>
             <option value="Daniela">Daniela</option>
           </select>
@@ -1058,12 +1059,17 @@ function render(d) {
         <div class="value">${fmt(k.totalVentas)}</div>
         <div class="sub">${k.numVentas} transacciones</div>
       </div>
+      <div class="kpi-card accent">
+        <div class="label">Caja Disponible</div>
+        <div class="value">${fmt(k.availableCash ?? k.totalVentas)}</div>
+        <div class="sub">Reinvertido: ${fmt(k.cashPurchases || 0)}</div>
+      </div>
       <div class="kpi-card blue">
         <div class="label">Compras Totales</div>
         <div class="value">${fmt(k.totalCompras)}</div>
         <div class="sub">${k.numCompras} órdenes</div>
       </div>
-      <div class="kpi-card accent">
+      <div class="kpi-card green">
         <div class="label">Ganancia Neta</div>
         <div class="value">${fmt(k.totalGanancia)}</div>
         <div class="sub">Margen: ${k.margenGeneral}%</div>
@@ -1112,20 +1118,23 @@ function render(d) {
     <!-- Resumen -->
     <div class="resumen-grid">
       <div class="table-card">
-        <h3>📊 Resumen por Usuario</h3>
+        <h3>📊 Resumen por Usuario y Caja</h3>
         <table>
-          <thead><tr><th>Usuario</th><th class="text-right">Compras</th><th class="text-right">Ventas</th><th class="text-right">Efectivo</th><th class="text-right">MELI</th><th>Cuadre</th></tr></thead>
+          <thead><tr><th>Usuario / Fondo</th><th class="text-right">Compras</th><th class="text-right">Ventas / Disponible</th><th class="text-right">Efectivo</th><th class="text-right">MELI</th><th>Cuadre</th></tr></thead>
           <tbody>
-            ${d.resumen.filter(r => r['Usuario']).map(r => `
-              <tr>
-                <td><strong>${r['Usuario']}</strong></td>
+            ${d.resumen.filter(r => r['Usuario']).map(r => {
+              const isCashRow = r['Usuario'].trim().toLowerCase() === 'caja';
+              const isOk = (r['Cuadre'] || '').toUpperCase() === 'OK';
+              return `
+              <tr style="${isCashRow ? 'background:rgba(251,191,36,0.08);border-top:2px solid var(--border)' : ''}">
+                <td><strong>${isCashRow ? '💰 ' + r['Usuario'] : r['Usuario']}</strong></td>
                 <td class="text-right">${r['Compras'] || '-'}</td>
-                <td class="text-right">${r['Ventas'] || '-'}</td>
+                <td class="text-right" style="${isCashRow ? 'color:var(--accent);font-weight:700' : ''}">${r['Ventas'] || '-'}</td>
                 <td class="text-right">${r['Efetivo'] || r['Efectivo'] || '-'}</td>
                 <td class="text-right">${r['Meli'] || '-'}</td>
-                <td><span class="badge badge-ok">${r['Cuadre'] || '-'}</span></td>
-              </tr>
-            `).join('')}
+                <td><span class="badge ${isOk ? 'badge-ok' : 'badge-low-stock'}">${r['Cuadre'] || '-'}</span></td>
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>
