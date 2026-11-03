@@ -387,6 +387,7 @@
   <div class="header-actions">
     <button class="btn btn-green" onclick="openModal('venta')">➕ Agregar Venta</button>
     <button class="btn btn-blue" onclick="openModal('compra')">➕ Agregar Compra</button>
+    <button class="btn" style="background:#f97316;color:#fff" onclick="openModal('gasto')">💸 Agregar Gasto</button>
     <button class="btn" style="background:#a855f7;color:#fff" onclick="openModal('producto')">🆕 Nuevo Producto</button>
     <button class="btn btn-accent" onclick="loadData()">🔄 Actualizar</button>
   </div>
@@ -587,6 +588,58 @@
       <div class="form-actions">
         <button type="button" class="btn btn-cancel" onclick="closeModal('producto')">Cancelar</button>
         <button type="submit" class="btn" style="background:#a855f7;color:#fff">💾 Crear Producto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Gasto -->
+<div class="modal-overlay" id="modal-gasto">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('gasto')">&times;</button>
+    <h2>💸 <span>Agregar Gasto (Insumos / Embalaje)</span></h2>
+    <form id="form-gasto" onsubmit="submitExpense(event)">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quién Paga</label>
+          <select name="quienPaga" required>
+            <option value="">Seleccionar...</option>
+            <option value="Caja">💰 Caja (Dinero de ventas)</option>
+            <option value="Bayron">Bayron (Inversión)</option>
+            <option value="Daniela">Daniela (Inversión)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha</label>
+          <input type="date" name="fecha" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Categoría</label>
+        <select name="categoria" required>
+          <option value="Embalaje">📦 Embalaje (Bolsas, cinta, papel, cajas)</option>
+          <option value="Papelería">🏷️ Papelería / Etiquetas</option>
+          <option value="Transporte">🚚 Transporte / Envíos</option>
+          <option value="Otros">🔧 Otros gastos</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Descripción</label>
+        <input type="text" name="descripcion" placeholder="Ej: Bolsas de envío, cinta adhesiva, papel burbuja" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cantidad</label>
+          <input type="number" name="cantidad" min="1" value="1" required>
+        </div>
+        <div class="form-group">
+          <label>Valor Unitario</label>
+          <input type="text" name="valor" placeholder="$12.000" required>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeModal('gasto')">Cancelar</button>
+        <button type="submit" class="btn" style="background:#f97316;color:#fff">💾 Guardar Gasto</button>
       </div>
     </form>
   </div>
@@ -903,6 +956,46 @@ async function submitCompra(e) {
   }
 }
 
+// ── Submit Expense ──
+async function submitExpense(e) {
+  e.preventDefault();
+  const f = e.target;
+  const btn = f.querySelector('[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const body = {
+      quienPaga: f.quienPaga.value,
+      fecha: formatDate(f.fecha.value),
+      categoria: f.categoria.value,
+      descripcion: f.descripcion.value,
+      cantidad: f.cantidad.value,
+      valor: f.valor.value,
+    };
+
+    const res = await fetch('/api/gastos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`✅ Gasto registrado en fila ${data.row}`);
+      closeModal('gasto');
+      loadData();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (err) {
+    showToast(`❌ Error: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Gasto';
+  }
+}
+
 // ── Load Data ──
 function loadData() {
   const app = $('#app');
@@ -1062,12 +1155,17 @@ function render(d) {
       <div class="kpi-card accent">
         <div class="label">Caja Disponible</div>
         <div class="value">${fmt(k.availableCash ?? k.totalVentas)}</div>
-        <div class="sub">Reinvertido: ${fmt(k.cashPurchases || 0)}</div>
+        <div class="sub">Usado de caja: ${fmt((k.cashPurchases || 0) + (k.cashExpenses || 0))}</div>
       </div>
       <div class="kpi-card blue">
         <div class="label">Compras Totales</div>
         <div class="value">${fmt(k.totalCompras)}</div>
         <div class="sub">${k.numCompras} órdenes</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="label">Gastos Operativos</div>
+        <div class="value">${fmt(k.totalExpenses || 0)}</div>
+        <div class="sub">${k.numExpenses || 0} insumos / embalaje</div>
       </div>
       <div class="kpi-card green">
         <div class="label">Ganancia Neta</div>
@@ -1120,7 +1218,7 @@ function render(d) {
       <div class="table-card">
         <h3>📊 Resumen por Usuario y Caja</h3>
         <table>
-          <thead><tr><th>Usuario / Fondo</th><th class="text-right">Compras</th><th class="text-right">Ventas / Disponible</th><th class="text-right">Efectivo</th><th class="text-right">MELI</th><th>Cuadre</th></tr></thead>
+          <thead><tr><th>Usuario / Fondo</th><th class="text-right">Compras</th><th class="text-right">Gastos</th><th class="text-right">Ventas / Disponible</th><th class="text-right">Efectivo</th><th class="text-right">MELI</th><th>Cuadre</th></tr></thead>
           <tbody>
             ${d.resumen.filter(r => r['Usuario']).map(r => {
               const isCashRow = r['Usuario'].trim().toLowerCase() === 'caja';
@@ -1129,6 +1227,7 @@ function render(d) {
               <tr style="${isCashRow ? 'background:rgba(251,191,36,0.08);border-top:2px solid var(--border)' : ''}">
                 <td><strong>${isCashRow ? '💰 ' + r['Usuario'] : r['Usuario']}</strong></td>
                 <td class="text-right">${r['Compras'] || '-'}</td>
+                <td class="text-right">${r['Gastos'] || '$0'}</td>
                 <td class="text-right" style="${isCashRow ? 'color:var(--accent);font-weight:700' : ''}">${r['Ventas'] || '-'}</td>
                 <td class="text-right">${r['Efetivo'] || r['Efectivo'] || '-'}</td>
                 <td class="text-right">${r['Meli'] || '-'}</td>
@@ -1222,6 +1321,28 @@ function render(d) {
           }).join('')}
         </tbody>
       </table>
+    </div>
+
+    <!-- Gastos Recientes -->
+    <div class="table-card">
+      <h3>💸 Últimos Gastos (Embalaje e Insumos)</h3>
+      ${(!d.recentExpenses || d.recentExpenses.length === 0) ? '<p style="color:var(--muted);padding:1rem">Aún no hay gastos registrados</p>' : `
+      <table>
+        <thead><tr><th>Fecha</th><th>Quién Paga</th><th>Categoría</th><th>Descripción</th><th class="text-right">Cant.</th><th class="text-right">Valor Unit.</th><th class="text-right">Total</th></tr></thead>
+        <tbody>
+          ${d.recentExpenses.map(r => `
+            <tr>
+              <td>${r['Fecha'] || '-'}</td>
+              <td><strong>${r['Quien Paga'] || '-'}</strong></td>
+              <td><span class="badge badge-fisico">${r['Categoria'] || 'Embalaje'}</span></td>
+              <td>${r['Descripcion'] || '-'}</td>
+              <td class="text-right">${r['Cantidad'] || '1'}</td>
+              <td class="text-right">${r['Valor'] || '-'}</td>
+              <td class="text-right text-red"><strong>${r['Total'] || '-'}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`}
     </div>
   `;
 

@@ -9,19 +9,24 @@ module.exports = async (req, res) => {
   try {
     const sheets = await getSheetsClient('spreadsheets.readonly');
 
-    const [compras, ventas, inventario, resumen] = await Promise.all([
+    const [compras, ventas, inventario, resumen, gastos] = await Promise.all([
       readTab(sheets, 'Compras Proyecto'),
       readTab(sheets, 'Ventas Proyectos'),
       readTab(sheets, 'Inventario'),
       readTab(sheets, 'Resumen'),
+      readTab(sheets, 'Gastos').catch(() => []),
     ]);
 
     const totalCompras = compras.reduce((s, r) => s + parseMoney(r['Total']), 0);
     const totalVentas = ventas.reduce((s, r) => s + parseMoney(r['Total']), 0);
+    const totalExpenses = gastos.reduce((s, r) => s + parseMoney(r['Total']), 0);
     const cashPurchases = compras
       .filter(r => (r['Quien Entrega'] || '').trim().toLowerCase() === 'caja')
       .reduce((s, r) => s + parseMoney(r['Total']), 0);
-    const availableCash = totalVentas - cashPurchases;
+    const cashExpenses = gastos
+      .filter(r => (r['Quien Paga'] || '').trim().toLowerCase() === 'caja')
+      .reduce((s, r) => s + parseMoney(r['Total']), 0);
+    const availableCash = totalVentas - cashPurchases - cashExpenses;
     const totalGanancia = ventas.reduce((s, r) => s + parseMoney(r['Ganancia']), 0);
     const ventasMeli = ventas.filter(r => (r['FUENTE'] || '').toUpperCase() === 'MELI');
     const ventasFisico = ventas.filter(r => (r['FUENTE'] || '').toUpperCase() === 'FISICO');
@@ -89,7 +94,9 @@ module.exports = async (req, res) => {
       kpis: {
         totalCompras,
         totalVentas,
+        totalExpenses,
         cashPurchases,
+        cashExpenses,
         availableCash,
         totalGanancia,
         margenGeneral: totalVentas > 0 ? ((totalGanancia / totalVentas) * 100).toFixed(1) : 0,
@@ -98,6 +105,7 @@ module.exports = async (req, res) => {
         valorInventario,
         numVentas: ventas.length,
         numCompras: compras.length,
+        numExpenses: gastos.length,
         numProductos: inventarioActivo.length,
       },
       resumen,
@@ -111,6 +119,7 @@ module.exports = async (req, res) => {
       outOfStockInventory,
       ventasRecientes: ventas.slice(-20).reverse(),
       comprasRecientes: compras.slice(-20).reverse(),
+      recentExpenses: gastos.slice(-20).reverse(),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
