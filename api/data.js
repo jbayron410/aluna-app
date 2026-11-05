@@ -1,4 +1,4 @@
-const { getSheetsClient, readTab, parseMoney } = require('./_lib/sheets');
+const { getSheetsClient, readTab, readRaw, parseMoney, SPREADSHEET_ID } = require('./_lib/sheets');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,13 +9,28 @@ module.exports = async (req, res) => {
   try {
     const sheets = await getSheetsClient('spreadsheets.readonly');
 
-    const [compras, ventas, inventario, resumen, gastos] = await Promise.all([
+    const [compras, ventas, inventario, resumen, gastos, cuadreRaw] = await Promise.all([
       readTab(sheets, 'Compras Proyecto'),
       readTab(sheets, 'Ventas Proyectos'),
       readTab(sheets, 'Inventario'),
       readTab(sheets, 'Resumen'),
       readTab(sheets, 'Gastos').catch(() => []),
+      readRaw(sheets, SPREADSHEET_ID, 'Cuadre Caja', 'A1:C15').catch(() => []),
     ]);
+
+    const denominations = {};
+    let countedCash = 0;
+    for (let i = 1; i <= 11; i++) {
+      const row = cuadreRaw[i] || [];
+      const denom = parseMoney(row[0]);
+      const qty = Number(String(row[1] || '0').replace(/[^0-9]/g, '')) || 0;
+      if (denom > 0) {
+        denominations[String(denom)] = qty;
+        countedCash += denom * qty;
+      }
+    }
+    const countedMeli = parseMoney((cuadreRaw[13] || [])[2]);
+    const lastReconciledAt = ((cuadreRaw[14] || [])[2] || '').trim();
 
     const totalCompras = compras.reduce((s, r) => s + parseMoney(r['Total']), 0);
     const totalVentas = ventas.reduce((s, r) => s + parseMoney(r['Total']), 0);
@@ -109,6 +124,15 @@ module.exports = async (req, res) => {
         numProductos: inventarioActivo.length,
       },
       resumen,
+      cashReconciliation: {
+        denominations,
+        countedCash,
+        countedMeli,
+        countedTotal: countedCash + countedMeli,
+        expectedCash: availableCash,
+        difference: (countedCash + countedMeli) - availableCash,
+        lastReconciledAt,
+      },
       ventasPorMes: Object.entries(ventasPorMes).sort((a, b) => a[0].localeCompare(b[0])),
       comprasPorMes: Object.entries(comprasPorMes).sort((a, b) => a[0].localeCompare(b[0])),
       topProductos,

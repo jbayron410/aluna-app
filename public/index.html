@@ -244,6 +244,98 @@
     border-color: var(--text);
     color: var(--text);
   }
+  .reconciliation-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    margin-bottom: 0.85rem;
+  }
+  .reconciliation-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.65rem 0.8rem;
+  }
+  .reconciliation-box .box-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .reconciliation-box .box-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-top: 0.2rem;
+  }
+  .reconcile-status-banner {
+    padding: 0.65rem 0.9rem;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+  .reconcile-status-banner.ok {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #86efac;
+  }
+  .reconcile-status-banner.diff {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+  }
+  .denom-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+    margin-bottom: 1rem;
+  }
+  .denom-row {
+    display: grid;
+    grid-template-columns: 115px 1fr 110px;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.82rem;
+  }
+  .denom-stepper {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    justify-content: center;
+  }
+  .denom-stepper button {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .denom-stepper button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .denom-stepper input {
+    width: 60px;
+    text-align: center;
+    padding: 0.25rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.84rem;
+  }
   .text-right { text-align: right; }
   .text-green { color: var(--green); }
   .text-red { color: var(--red); }
@@ -388,6 +480,7 @@
     <button class="btn btn-green" onclick="openModal('venta')">➕ Agregar Venta</button>
     <button class="btn btn-blue" onclick="openModal('compra')">➕ Agregar Compra</button>
     <button class="btn" style="background:#f97316;color:#fff" onclick="openModal('gasto')">💸 Agregar Gasto</button>
+    <button class="btn" style="background:#eab308;color:#000" onclick="openReconciliationModal()">🧮 Cuadrar Caja</button>
     <button class="btn" style="background:#a855f7;color:#fff" onclick="openModal('producto')">🆕 Nuevo Producto</button>
     <button class="btn btn-accent" onclick="loadData()">🔄 Actualizar</button>
   </div>
@@ -640,6 +733,71 @@
       <div class="form-actions">
         <button type="button" class="btn btn-cancel" onclick="closeModal('gasto')">Cancelar</button>
         <button type="submit" class="btn" style="background:#f97316;color:#fff">💾 Guardar Gasto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Cuadre Caja -->
+<div class="modal-overlay" id="modal-cuadre">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" onclick="closeModal('cuadre')">&times;</button>
+    <h2>🧮 <span>Cuadrar Caja (Efectivo + MELI)</span></h2>
+    <form id="form-cuadre" onsubmit="submitCashReconciliation(event)">
+      <div class="reconciliation-summary">
+        <div class="reconciliation-box">
+          <div class="box-label">Caja Disponible (Sistema)</div>
+          <div class="box-value" id="reconcile-expected-val" style="color:var(--accent)">$0</div>
+        </div>
+        <div class="reconciliation-box">
+          <div class="box-label">Total Contado (Efectivo + MELI)</div>
+          <div class="box-value" id="reconcile-counted-val">$0</div>
+        </div>
+        <div class="reconciliation-box">
+          <div class="box-label">Total Efectivo (Billetes/Monedas)</div>
+          <div class="box-value" id="reconcile-cash-val" style="color:var(--green)">$0</div>
+        </div>
+        <div class="reconciliation-box">
+          <div class="box-label">Saldo MercadoLibre (MELI)</div>
+          <div class="box-value" id="reconcile-meli-val" style="color:var(--orange)">$0</div>
+        </div>
+      </div>
+
+      <div id="reconcile-status-banner" class="reconcile-status-banner ok">
+        ✅ Caja Cuadrada ($0 de diferencia)
+      </div>
+
+      <div class="form-group">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>Saldo en MercadoLibre (MELI)</span>
+          <button
+            type="button"
+            class="btn btn-sm"
+            style="background:rgba(251,191,36,0.16);color:var(--accent);padding:0.2rem 0.55rem;font-size:0.72rem"
+            onclick="autoMatchMeliBalance()"
+          >
+            ⚡ Ajustar MELI al restante
+          </button>
+        </label>
+        <input
+          type="number"
+          id="reconcile-meli-input"
+          min="0"
+          step="1"
+          placeholder="Ej: 1901579"
+          oninput="recalculateCashReconciliation()"
+          required
+        >
+      </div>
+
+      <div class="form-group" style="margin-bottom:0.5rem">
+        <label>Efectivo por Denominación (Colombia)</label>
+        <div class="denom-list" id="reconcile-denom-list"></div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeModal('cuadre')">Cancelar</button>
+        <button type="submit" class="btn btn-accent">💾 Guardar Cuadre</button>
       </div>
     </form>
   </div>
@@ -1130,11 +1288,168 @@ function renderInventorySection() {
   }).join('');
 }
 
+// ── Cash Reconciliation (Cuadre de Caja) ──
+const COLOMBIAN_DENOMINATIONS = [
+  100000,
+  50000,
+  20000,
+  10000,
+  5000,
+  2000,
+  1000,
+  500,
+  200,
+  100,
+  50,
+];
+
+let currentReconciliationState = {
+  denominations: {},
+  countedCash: 0,
+  countedMeli: 0,
+  expectedCash: 0,
+};
+
+function openReconciliationModal() {
+  const denomListEl = $('#reconcile-denom-list');
+  const meliInput = $('#reconcile-meli-input');
+  if (!denomListEl || !meliInput) return;
+
+  meliInput.value = currentReconciliationState.countedMeli || 0;
+
+  denomListEl.innerHTML = COLOMBIAN_DENOMINATIONS.map(denom => {
+    const qty = Number(currentReconciliationState.denominations[String(denom)] || 0);
+    const isBill = denom >= 2000;
+    const icon = isBill ? '💵' : '🪙';
+    return `
+      <div class="denom-row">
+        <div><strong>${icon} ${fmt(denom)}</strong></div>
+        <div class="denom-stepper">
+          <button type="button" onclick="adjustDenomQuantity(${denom}, -1)">−</button>
+          <input
+            type="number"
+            id="denom-qty-${denom}"
+            min="0"
+            value="${qty}"
+            oninput="recalculateCashReconciliation()"
+          >
+          <button type="button" onclick="adjustDenomQuantity(${denom}, 1)">+</button>
+        </div>
+        <div class="text-right" id="denom-sub-${denom}" style="font-weight:600">${fmt(denom * qty)}</div>
+      </div>
+    `;
+  }).join('');
+
+  recalculateCashReconciliation();
+  $('#modal-cuadre').classList.add('active');
+}
+
+function adjustDenomQuantity(denom, delta) {
+  const input = $(`#denom-qty-${denom}`);
+  if (!input) return;
+  const current = parseInt(input.value, 10) || 0;
+  input.value = Math.max(0, current + delta);
+  recalculateCashReconciliation();
+}
+
+function recalculateCashReconciliation() {
+  let totalCash = 0;
+  COLOMBIAN_DENOMINATIONS.forEach(denom => {
+    const input = $(`#denom-qty-${denom}`);
+    const subEl = $(`#denom-sub-${denom}`);
+    const qty = Math.max(0, parseInt(input?.value, 10) || 0);
+    const subtotal = denom * qty;
+    totalCash += subtotal;
+    if (subEl) subEl.textContent = fmt(subtotal);
+  });
+
+  const meliVal = Math.max(0, Number($('#reconcile-meli-input')?.value) || 0);
+  const expectedVal = Number(currentReconciliationState.expectedCash) || 0;
+  const countedTotal = totalCash + meliVal;
+  const diff = countedTotal - expectedVal;
+
+  $('#reconcile-expected-val').textContent = fmt(expectedVal);
+  $('#reconcile-counted-val').textContent = fmt(countedTotal);
+  $('#reconcile-cash-val').textContent = fmt(totalCash);
+  $('#reconcile-meli-val').textContent = fmt(meliVal);
+
+  const banner = $('#reconcile-status-banner');
+  if (!banner) return;
+
+  if (diff === 0) {
+    banner.className = 'reconcile-status-banner ok';
+    banner.textContent = '✅ Caja Cuadrada ($0 de diferencia)';
+  } else if (diff > 0) {
+    banner.className = 'reconcile-status-banner diff';
+    banner.textContent = `⚠️ Sobran ${fmt(diff)} en el conteo (descuenta lo gastado de billetes o MELI)`;
+  } else {
+    banner.className = 'reconcile-status-banner diff';
+    banner.textContent = `⚠️ Faltan ${fmt(Math.abs(diff))} para cuadrar con Caja Disponible`;
+  }
+}
+
+function autoMatchMeliBalance() {
+  let totalCash = 0;
+  COLOMBIAN_DENOMINATIONS.forEach(denom => {
+    const qty = Math.max(0, parseInt($(`#denom-qty-${denom}`)?.value, 10) || 0);
+    totalCash += denom * qty;
+  });
+  const expectedVal = Number(currentReconciliationState.expectedCash) || 0;
+  const remainingForMeli = Math.max(0, expectedVal - totalCash);
+  const meliInput = $('#reconcile-meli-input');
+  if (meliInput) {
+    meliInput.value = remainingForMeli;
+    recalculateCashReconciliation();
+  }
+}
+
+async function submitCashReconciliation(e) {
+  e.preventDefault();
+  const f = e.target;
+  const btn = f.querySelector('[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const denominations = {};
+    COLOMBIAN_DENOMINATIONS.forEach(denom => {
+      denominations[String(denom)] = Math.max(0, parseInt($(`#denom-qty-${denom}`)?.value, 10) || 0);
+    });
+    const meliBalance = Math.max(0, Number($('#reconcile-meli-input')?.value) || 0);
+
+    const res = await fetch('/api/cuadre', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ denominations, meliBalance }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast('✅ Cuadre de caja guardado correctamente');
+      closeModal('cuadre');
+      loadData();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (err) {
+    showToast(`❌ Error: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Cuadre';
+  }
+}
+
 function render(d) {
   const app = $('#app');
   const k = d.kpis;
   currentInventoryItems = d.inventario || [];
   outOfStockInventoryItems = d.outOfStockInventory || [];
+  currentReconciliationState = d.cashReconciliation || {
+    denominations: {},
+    countedCash: 0,
+    countedMeli: 0,
+    expectedCash: k.availableCash ?? k.totalVentas ?? 0,
+  };
   populateSaleProductSelect(
     currentInventoryItems.map(item => ({
       codigo: item['Codigo'] || '',
@@ -1223,6 +1538,9 @@ function render(d) {
             ${d.resumen.filter(r => r['Usuario']).map(r => {
               const isCashRow = r['Usuario'].trim().toLowerCase() === 'caja';
               const isOk = (r['Cuadre'] || '').toUpperCase() === 'OK';
+              const badgeHtml = isCashRow
+                ? `<span class="badge ${isOk ? 'badge-ok' : 'badge-low-stock'}" style="cursor:pointer" onclick="openReconciliationModal()" title="Haz clic para cuadrar caja">${r['Cuadre'] || '-'} ${isOk ? '' : '🧮'}</span>`
+                : `<span class="badge ${isOk ? 'badge-ok' : 'badge-low-stock'}">${r['Cuadre'] || '-'}</span>`;
               return `
               <tr style="${isCashRow ? 'background:rgba(251,191,36,0.08);border-top:2px solid var(--border)' : ''}">
                 <td><strong>${isCashRow ? '💰 ' + r['Usuario'] : r['Usuario']}</strong></td>
@@ -1231,7 +1549,7 @@ function render(d) {
                 <td class="text-right" style="${isCashRow ? 'color:var(--accent);font-weight:700' : ''}">${r['Ventas'] || '-'}</td>
                 <td class="text-right">${r['Efetivo'] || r['Efectivo'] || '-'}</td>
                 <td class="text-right">${r['Meli'] || '-'}</td>
-                <td><span class="badge ${isOk ? 'badge-ok' : 'badge-low-stock'}">${r['Cuadre'] || '-'}</span></td>
+                <td>${badgeHtml}</td>
               </tr>`;
             }).join('')}
           </tbody>
