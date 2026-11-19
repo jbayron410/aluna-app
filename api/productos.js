@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
     // Set formulas — Entrada y Salida son SUMIF que se actualizan solas
     await setFormulas(sheets, 'Inventario', newRow, {
       'C': "=IFERROR(SUMIF('Compras Proyecto'!$C:$C;$A{row};'Compras Proyecto'!$E:$E);0)",
-      'D': "=IFERROR(SUMIF('Ventas Proyectos'!$C:$C;$A{row};'Ventas Proyectos'!$G:$G);0)",
+      'D': "=IFERROR(SUMIF('Ventas Proyectos'!$C:$C;$A{row};'Ventas Proyectos'!$G:$G);0)-IFERROR(SUMIFS('Devoluciones'!$E:$E;'Devoluciones'!$C:$C;$A{row};'Devoluciones'!$H:$H;\"Bueno\");0)",
       'E': '=C{row}-D{row}',
       'H': '=IFERROR(SUMIF(Tabla_1[[#ALL],[Codigo]];A{row};Tabla_1[[#ALL],[Total]])/C{row};0)',
       'I': '=IF(E{row}>0;"OK";"Agotado")',

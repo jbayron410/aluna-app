@@ -569,6 +569,7 @@
   <div class="header-actions">
     <button class="btn btn-green" onclick="openModal('venta')">➕ Agregar Venta</button>
     <button class="btn btn-blue" onclick="openModal('compra')">➕ Agregar Compra</button>
+    <button class="btn" style="background:#ef4444;color:#fff" onclick="openReturnModal()">↩️ Devolución</button>
     <button class="btn" style="background:#f97316;color:#fff" onclick="openModal('gasto')">💸 Agregar Gasto</button>
     <button class="btn" style="background:#eab308;color:#000" onclick="openReconciliationModal()">🧮 Cuadrar Caja</button>
     <button class="btn" style="background:#a855f7;color:#fff" onclick="openModal('producto')">🆕 Nuevo Producto</button>
@@ -888,6 +889,112 @@
       <div class="form-actions">
         <button type="button" class="btn btn-cancel" onclick="closeModal('cuadre')">Cancelar</button>
         <button type="submit" class="btn btn-accent">💾 Guardar Cuadre</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Devolución -->
+<div class="modal-overlay" id="modal-devolucion">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" onclick="closeModal('devolucion')">&times;</button>
+    <h2 id="return-modal-title">↩️ <span>Registrar Devolución</span></h2>
+    <form id="form-devolucion" onsubmit="submitReturnForm(event)">
+      <input type="hidden" name="rowNumber" id="return-row-number" value="">
+      <input type="hidden" name="ventaRef" id="return-venta-ref" value="">
+
+      <div class="form-group" id="return-sale-select-group">
+        <label>Elegir Venta a Devolver</label>
+        <select id="return-sale-select" onchange="onReturnSaleSelect(this)">
+          <option value="">-- Seleccionar venta registrada --</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha Devolución</label>
+          <input type="date" name="fecha" id="return-fecha" required>
+        </div>
+        <div class="form-group">
+          <label>Código Producto</label>
+          <input type="text" name="codigo" id="return-codigo" readonly style="opacity:0.7" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Descripción del Producto</label>
+        <input type="text" name="descripcion" id="return-descripcion" readonly style="opacity:0.7" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cantidad Devuelta</label>
+          <input
+            type="number"
+            name="cantidad"
+            id="return-cantidad"
+            min="1"
+            value="1"
+            oninput="onReturnQuantityChange()"
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label>Estado del Producto</label>
+          <select name="estadoProducto" id="return-estado-producto" required>
+            <option value="Bueno">✅ Bueno (Suma al inventario)</option>
+            <option value="Dañado">💔 Dañado (Sacar del inventario)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor Venta a Devolver ($)</label>
+          <input
+            type="number"
+            name="valorDevuelto"
+            id="return-valor-devuelto"
+            min="0"
+            step="1"
+            placeholder="Ej: 60000"
+            oninput="recalculateReturnTotalPreview()"
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label>Costo Envío Cobrado ($)</label>
+          <input
+            type="number"
+            name="costoEnvio"
+            id="return-costo-envio"
+            min="0"
+            step="1"
+            value="0"
+            placeholder="0 (Editable luego)"
+            oninput="recalculateReturnTotalPreview()"
+            required
+          >
+        </div>
+      </div>
+
+      <div id="return-total-preview" class="reconcile-status-banner diff" style="margin-bottom:1rem">
+        📉 Total que se resta de Caja Disponible: $0
+      </div>
+
+      <div class="form-group">
+        <label>Motivo / Notas (Opcional)</label>
+        <input
+          type="text"
+          name="motivo"
+          id="return-motivo"
+          placeholder="Ej: Pendiente cobro envío MELI / Producto llegó averiado"
+        >
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeModal('devolucion')">Cancelar</button>
+        <button type="submit" class="btn" id="return-submit-btn" style="background:#ef4444;color:#fff">💾 Guardar Devolución</button>
       </div>
     </form>
   </div>
@@ -1529,11 +1636,175 @@ async function submitCashReconciliation(e) {
   }
 }
 
+// ── Returns Management (Devoluciones) ──
+let currentReturnsList = [];
+let currentSalesForReturns = [];
+let selectedSaleUnitRefund = 0;
+
+function convertSheetDateToInputDate(sheetDate) {
+  if (!sheetDate) return getTodayColombia();
+  const parts = String(sheetDate).split('/');
+  if (parts.length < 3) return getTodayColombia();
+  const day = parts[0].padStart(2, '0');
+  const month = parts[1].padStart(2, '0');
+  const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+  return `${year}-${month}-${day}`;
+}
+
+function populateReturnSalesSelect() {
+  const sel = $('#return-sale-select');
+  if (!sel) return;
+  while (sel.options.length > 1) sel.remove(1);
+  currentSalesForReturns.forEach((sale, idx) => {
+    const opt = document.createElement('option');
+    opt.value = String(idx);
+    const clientInfo = sale.cliente ? ` (${sale.cliente})` : '';
+    opt.textContent = `[${sale.fecha}] ${sale.descripcion}${clientInfo} — x${sale.cantidad} — Total: ${fmt(sale.total)} (${sale.fuente})`;
+    sel.appendChild(opt);
+  });
+}
+
+function openReturnModal() {
+  const form = $('#form-devolucion');
+  if (!form) return;
+  form.reset();
+  selectedSaleUnitRefund = 0;
+
+  $('#return-modal-title').innerHTML = '↩️ <span>Registrar Devolución</span>';
+  $('#return-submit-btn').textContent = '💾 Guardar Devolución';
+  $('#return-row-number').value = '';
+  $('#return-venta-ref').value = '';
+  $('#return-sale-select-group').style.display = 'block';
+  $('#return-sale-select').required = true;
+  $('#return-fecha').value = getTodayColombia();
+  $('#return-costo-envio').value = '0';
+  $('#return-estado-producto').value = 'Bueno';
+
+  populateReturnSalesSelect();
+  recalculateReturnTotalPreview();
+  $('#modal-devolucion').classList.add('active');
+}
+
+function openEditReturnModal(rowNumber) {
+  const item = currentReturnsList.find(r => r.rowNumber === rowNumber);
+  if (!item) return;
+
+  const form = $('#form-devolucion');
+  form.reset();
+  selectedSaleUnitRefund = item.cantidad > 0 ? Math.round(item.valorDevuelto / item.cantidad) : item.valorDevuelto;
+
+  $('#return-modal-title').innerHTML = `✏️ <span>Editar Devolución (Fila ${item.rowNumber})</span>`;
+  $('#return-submit-btn').textContent = '💾 Actualizar Devolución';
+  $('#return-row-number').value = String(item.rowNumber);
+  $('#return-venta-ref').value = item.ventaRef || '';
+  $('#return-sale-select-group').style.display = 'none';
+  $('#return-sale-select').required = false;
+
+  $('#return-fecha').value = convertSheetDateToInputDate(item.fecha);
+  $('#return-codigo').value = item.codigo || '';
+  $('#return-descripcion').value = item.descripcion || '';
+  $('#return-cantidad').value = item.cantidad || 1;
+  $('#return-valor-devuelto').value = item.valorDevuelto || 0;
+  $('#return-costo-envio').value = item.costoEnvio || 0;
+  $('#return-estado-producto').value = item.estadoProducto || 'Bueno';
+  $('#return-motivo').value = item.motivo || '';
+
+  recalculateReturnTotalPreview();
+  $('#modal-devolucion').classList.add('active');
+}
+
+function onReturnSaleSelect(sel) {
+  if (!sel.value) return;
+  const sale = currentSalesForReturns[Number(sel.value)];
+  if (!sale) return;
+
+  const qty = Math.max(1, sale.cantidad || 1);
+  selectedSaleUnitRefund = Math.round((sale.total || 0) / qty);
+
+  $('#return-venta-ref').value = `Fila ${sale.rowNumber} (${sale.fecha} - ${sale.quienRecibe})`;
+  $('#return-codigo').value = sale.codigo || '';
+  $('#return-descripcion').value = sale.descripcion || '';
+  const qtyInput = $('#return-cantidad');
+  qtyInput.value = qty;
+  qtyInput.max = qty;
+  $('#return-valor-devuelto').value = sale.total || 0;
+
+  recalculateReturnTotalPreview();
+}
+
+function onReturnQuantityChange() {
+  const qty = Math.max(1, parseInt($('#return-cantidad')?.value, 10) || 1);
+  if (selectedSaleUnitRefund > 0) {
+    $('#return-valor-devuelto').value = selectedSaleUnitRefund * qty;
+  }
+  recalculateReturnTotalPreview();
+}
+
+function recalculateReturnTotalPreview() {
+  const refundVal = Math.max(0, Number($('#return-valor-devuelto')?.value) || 0);
+  const shippingVal = Math.max(0, Number($('#return-costo-envio')?.value) || 0);
+  const totalDeduction = refundVal + shippingVal;
+  const previewEl = $('#return-total-preview');
+  if (previewEl) {
+    previewEl.textContent = `📉 Total que se resta de Caja Disponible: ${fmt(totalDeduction)} (Venta: ${fmt(refundVal)} + Envío: ${fmt(shippingVal)})`;
+  }
+}
+
+async function submitReturnForm(e) {
+  e.preventDefault();
+  const f = e.target;
+  const btn = $('#return-submit-btn');
+  const rowNumber = $('#return-row-number').value;
+  const isEditing = Boolean(rowNumber);
+
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const body = {
+      rowNumber: isEditing ? Number(rowNumber) : undefined,
+      fecha: formatDate($('#return-fecha').value),
+      ventaRef: $('#return-venta-ref').value,
+      codigo: $('#return-codigo').value,
+      descripcion: $('#return-descripcion').value,
+      cantidad: $('#return-cantidad').value,
+      valorDevuelto: $('#return-valor-devuelto').value,
+      costoEnvio: $('#return-costo-envio').value || 0,
+      estadoProducto: $('#return-estado-producto').value,
+      motivo: $('#return-motivo').value,
+    };
+
+    const res = await fetch('/api/devoluciones', {
+      method: isEditing ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(isEditing ? `✅ Devolución actualizada (fila ${data.row})` : `✅ Devolución registrada en fila ${data.row}`);
+      closeModal('devolucion');
+      loadInventarioSelect();
+      loadCompraSelect();
+      loadData();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (err) {
+    showToast(`❌ Error: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = isEditing ? '💾 Actualizar Devolución' : '💾 Guardar Devolución';
+  }
+}
+
 function render(d) {
   const app = $('#app');
   const k = d.kpis;
   currentInventoryItems = d.inventario || [];
   outOfStockInventoryItems = d.outOfStockInventory || [];
+  currentReturnsList = d.returnsList || [];
+  currentSalesForReturns = d.salesForReturns || [];
   currentReconciliationState = d.cashReconciliation || {
     denominations: {},
     countedCash: 0,
@@ -1560,7 +1831,7 @@ function render(d) {
       <div class="kpi-card accent">
         <div class="label">Caja Disponible</div>
         <div class="value">${fmt(k.availableCash ?? k.totalVentas)}</div>
-        <div class="sub">Usado de caja: ${fmt((k.cashPurchases || 0) + (k.cashExpenses || 0))}</div>
+        <div class="sub">Usado/Dev.: ${fmt((k.cashPurchases || 0) + (k.cashExpenses || 0) + (k.totalReturns || 0))}</div>
       </div>
       <div class="kpi-card blue">
         <div class="label">Compras Totales</div>
@@ -1571,6 +1842,11 @@ function render(d) {
         <div class="label">Gastos Operativos</div>
         <div class="value">${fmt(k.totalExpenses || 0)}</div>
         <div class="sub">${k.numExpenses || 0} insumos / embalaje</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="label">Devoluciones</div>
+        <div class="value">${fmt(k.totalReturns || 0)}</div>
+        <div class="sub">${k.numReturns || 0} devoluciones</div>
       </div>
       <div class="kpi-card green">
         <div class="label">Ganancia Neta</div>
@@ -1623,7 +1899,7 @@ function render(d) {
       <div class="table-card">
         <h3>📊 Resumen por Usuario y Caja</h3>
         <table>
-          <thead><tr><th>Usuario / Fondo</th><th class="text-right">Compras</th><th class="text-right">Gastos</th><th class="text-right">Ventas / Disponible</th><th class="text-right">Efectivo</th><th class="text-right">MELI</th><th>Cuadre</th></tr></thead>
+          <thead><tr><th>Usuario / Fondo</th><th class="text-right">Compras</th><th class="text-right">Gastos</th><th class="text-right">Devol.</th><th class="text-right">Ventas / Disponible</th><th class="text-right">Efectivo</th><th class="text-right">MELI</th><th>Cuadre</th></tr></thead>
           <tbody>
             ${d.resumen.filter(r => r['Usuario']).map(r => {
               const isCashRow = r['Usuario'].trim().toLowerCase() === 'caja';
@@ -1636,6 +1912,7 @@ function render(d) {
                 <td><strong>${isCashRow ? '💰 ' + r['Usuario'] : r['Usuario']}</strong></td>
                 <td class="text-right">${r['Compras'] || '-'}</td>
                 <td class="text-right">${r['Gastos'] || '$0'}</td>
+                <td class="text-right">${r['Devoluciones'] || '$0'}</td>
                 <td class="text-right" style="${isCashRow ? 'color:var(--accent);font-weight:700' : ''}">${r['Ventas'] || '-'}</td>
                 <td class="text-right">${r['Efetivo'] || r['Efectivo'] || '-'}</td>
                 <td class="text-right">${r['Meli'] || '-'}</td>
@@ -1749,6 +2026,64 @@ function render(d) {
               <td class="text-right text-red"><strong>${r['Total'] || '-'}</strong></td>
             </tr>
           `).join('')}
+        </tbody>
+      </table>`}
+    </div>
+
+    <!-- Devoluciones -->
+    <div class="table-card">
+      <h3>↩️ Devoluciones (Reembolsos, Envíos y Estado de Inventario)</h3>
+      ${(!d.returnsList || d.returnsList.length === 0) ? '<p style="color:var(--muted);padding:1rem">Sin devoluciones registradas ✅</p>' : `
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Producto</th>
+            <th class="text-right">Cant.</th>
+            <th class="text-right">Valor Devuelto</th>
+            <th class="text-right">Costo Envío</th>
+            <th class="text-right">Total Caja</th>
+            <th>Estado Producto</th>
+            <th>Motivo / Venta</th>
+            <th class="text-right">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${d.returnsList.map(r => {
+            const isGood = (r.estadoProducto || 'Bueno').toLowerCase() === 'bueno';
+            return `
+              <tr>
+                <td>${r.fecha || '-'}</td>
+                <td>
+                  <strong>${r.descripcion || '-'}</strong>
+                  <div style="font-size:0.72rem;color:var(--muted);font-family:monospace">${r.codigo || ''}</div>
+                </td>
+                <td class="text-right"><strong>${r.cantidad}</strong></td>
+                <td class="text-right">${fmt(r.valorDevuelto)}</td>
+                <td class="text-right ${r.costoEnvio > 0 ? 'text-red' : ''}">${r.costoEnvio > 0 ? fmt(r.costoEnvio) : '<span style="color:var(--muted)">$0 (Sin cobro)</span>'}</td>
+                <td class="text-right text-red"><strong>-${fmt(r.totalCaja)}</strong></td>
+                <td>
+                  <span class="badge ${isGood ? 'badge-ok' : 'badge-low-stock'}">
+                    ${isGood ? '✅ Bueno (En Inventario)' : '💔 Dañado (Fuera de Inv.)'}
+                  </span>
+                </td>
+                <td style="font-size:0.76rem;color:var(--muted)">
+                  ${r.motivo ? `<div>${r.motivo}</div>` : ''}
+                  <div>${r.ventaRef || ''}</div>
+                </td>
+                <td class="text-right">
+                  <button
+                    type="button"
+                    class="btn btn-sm"
+                    style="background:var(--bg);border:1px solid var(--border);color:var(--text)"
+                    onclick="openEditReturnModal(${r.rowNumber})"
+                  >
+                    ✏️ Editar
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
         </tbody>
       </table>`}
     </div>
