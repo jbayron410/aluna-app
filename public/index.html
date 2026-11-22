@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MercadoLibre Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<!-- Firebase App and Authentication SDKs (Compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
   :root {
     --bg: #0f1117;
@@ -466,6 +469,182 @@
   }
   .formula-status.warn { background: rgba(239,68,68,0.1); color: var(--red); border-color: rgba(239,68,68,0.2); }
 
+  /* ── Auth Screen & Access Denied Styles ── */
+  .auth-loading-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    gap: 1rem;
+  }
+  .auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: radial-gradient(circle at top, #1e293b 0%, #0f1117 70%);
+  }
+  .auth-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  }
+  .auth-card .auth-logo {
+    font-size: 2.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .auth-card h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .auth-card h1 span {
+    color: var(--accent);
+  }
+  .auth-card .auth-subtitle {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 2rem;
+  }
+  .btn-google-login {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: #ffffff;
+    color: #1f2937;
+    border: 1px solid #e5e7eb;
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .btn-google-login:hover {
+    background: #f9fafb;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+  }
+  .btn-google-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .auth-security-note {
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+  .auth-error-banner {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    margin-bottom: 1.25rem;
+    text-align: left;
+    display: none;
+  }
+  .access-denied-box {
+    background: var(--card);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 440px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  }
+  .access-denied-box .icon {
+    font-size: 3rem;
+    margin-bottom: 0.75rem;
+  }
+  .access-denied-box h2 {
+    font-size: 1.4rem;
+    color: #f87171;
+    margin-bottom: 0.6rem;
+  }
+  .access-denied-box p {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.4;
+  }
+
+  /* ── Header User Info ── */
+  .header-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.3rem 0.65rem 0.3rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    max-width: 100%;
+  }
+  .header-user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .header-user-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .header-user-email {
+    font-size: 0.78rem;
+    color: var(--text);
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .btn-logout {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.72rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  .btn-logout:hover {
+    background: rgba(239, 68, 68, 0.25);
+  }
+
   @media (max-width: 900px) {
     .charts-grid, .resumen-grid { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
@@ -492,6 +671,16 @@
       font-size: 0.78rem;
       text-align: center;
       white-space: nowrap;
+    }
+    .header-user {
+      grid-column: 1 / -1;
+      justify-content: space-between;
+      width: 100%;
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+    }
+    .header-user-email {
+      max-width: none;
     }
     .container {
       padding: 1rem;
@@ -561,6 +750,53 @@
 </head>
 <body>
 
+<!-- Auth Loading Screen -->
+<div id="auth-loading" class="auth-loading-screen">
+  <div class="spinner"></div>
+  <p style="color:var(--muted);font-size:0.88rem">Verificando sesión...</p>
+</div>
+
+<!-- Login Screen -->
+<div id="auth-screen" class="auth-container" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">📦</div>
+    <h1>Aluna <span>Dashboard</span></h1>
+    <div class="auth-subtitle">Gestión de Compras, Ventas e Inventario</div>
+
+    <div id="login-error" class="auth-error-banner"></div>
+
+    <button id="google-login-btn" class="btn-google-login" onclick="loginWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.347 2.825.957 4.039l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+      </svg>
+      <span>Continuar con Google</span>
+    </button>
+
+    <div class="auth-security-note">
+      🔒 Acceso exclusivo para administradores autorizados
+    </div>
+  </div>
+</div>
+
+<!-- Access Denied Screen -->
+<div id="access-denied-screen" class="auth-container" style="display:none">
+  <div class="access-denied-box">
+    <div class="icon">⛔</div>
+    <h2>Acceso Restringido</h2>
+    <p>
+      La cuenta <strong id="denied-user-email" style="color:var(--text)"></strong> no está en la lista de usuarios autorizados para este dashboard.
+    </p>
+    <button class="btn btn-accent" style="width:100%" onclick="logout()">
+      🚪 Cerrar sesión y probar otra cuenta
+    </button>
+  </div>
+</div>
+
+<!-- Main Authenticated App -->
+<div id="main-content" style="display:none">
 <div class="header">
   <div>
     <h1>📦 <span>MercadoLibre</span> Dashboard</h1>
@@ -574,6 +810,11 @@
     <button class="btn" style="background:#eab308;color:#000" onclick="openReconciliationModal()">🧮 Cuadrar Caja</button>
     <button class="btn" style="background:#a855f7;color:#fff" onclick="openModal('producto')">🆕 Nuevo Producto</button>
     <button class="btn btn-accent" onclick="loadData()">🔄 Actualizar</button>
+    <div class="header-user" id="header-user">
+      <div id="user-avatar-slot" class="header-user-avatar">U</div>
+      <span class="header-user-email" id="header-user-email"></span>
+      <button type="button" class="btn btn-logout" onclick="logout()" title="Cerrar sesión">Salir</button>
+    </div>
   </div>
 </div>
 
@@ -999,6 +1240,7 @@
     </form>
   </div>
 </div>
+</div><!-- /#main-content -->
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -2138,9 +2380,176 @@ function render(d) {
   });
 }
 
-loadInventarioSelect();
-loadCompraSelect();
-loadData();
+// ── Firebase Configuration & Authentication ──
+const firebaseConfig = {
+  apiKey: "AIzaSyANeQWmoUytaOg6FH-qexIF_Sh9oLqfPLI",
+  authDomain: "aluna-app-eca3a.firebaseapp.com",
+  projectId: "aluna-app-eca3a",
+  storageBucket: "aluna-app-eca3a.firebasestorage.app",
+  messagingSenderId: "1046817356813",
+  appId: "1:1046817356813:web:e8ae9425ac14547b412944"
+};
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const auth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+const ALLOWED_EMAILS = [
+  'bayron410@gmail.com',
+  'alunaco1204@gmail.com'
+];
+
+let isDashboardDataLoaded = false;
+
+function isEmailAuthorized(email) {
+  if (!email) return false;
+  return ALLOWED_EMAILS.includes(email.toLowerCase().trim());
+}
+
+function updateHeaderUserInfo(user) {
+  const avatarSlot = $('#user-avatar-slot');
+  const emailEl = $('#header-user-email');
+  const email = (user.email || '').toLowerCase().trim();
+
+  if (emailEl) emailEl.textContent = email;
+
+  if (avatarSlot) {
+    if (user.photoURL) {
+      avatarSlot.innerHTML = `<img src="${user.photoURL}" alt="avatar" referrerpolicy="no-referrer">`;
+    } else {
+      const initial = (user.displayName || email || 'U').charAt(0).toUpperCase();
+      avatarSlot.textContent = initial;
+    }
+  }
+}
+
+function showDashboardView(user) {
+  const authLoading = $('#auth-loading');
+  const authScreen = $('#auth-screen');
+  const accessDeniedScreen = $('#access-denied-screen');
+  const mainContent = $('#main-content');
+
+  if (authLoading) authLoading.style.display = 'none';
+  if (authScreen) authScreen.style.display = 'none';
+  if (accessDeniedScreen) accessDeniedScreen.style.display = 'none';
+  if (mainContent) mainContent.style.display = 'block';
+
+  updateHeaderUserInfo(user);
+
+  if (!isDashboardDataLoaded) {
+    isDashboardDataLoaded = true;
+    loadInventarioSelect();
+    loadCompraSelect();
+    loadData();
+  }
+}
+
+function showAccessDeniedView(user) {
+  const authLoading = $('#auth-loading');
+  const authScreen = $('#auth-screen');
+  const accessDeniedScreen = $('#access-denied-screen');
+  const mainContent = $('#main-content');
+
+  if (authLoading) authLoading.style.display = 'none';
+  if (authScreen) authScreen.style.display = 'none';
+  if (mainContent) mainContent.style.display = 'none';
+  if (accessDeniedScreen) accessDeniedScreen.style.display = 'flex';
+
+  const deniedEmailEl = $('#denied-user-email');
+  if (deniedEmailEl) deniedEmailEl.textContent = user.email || 'desconocido';
+}
+
+function showLoginView() {
+  isDashboardDataLoaded = false;
+  const authLoading = $('#auth-loading');
+  const authScreen = $('#auth-screen');
+  const accessDeniedScreen = $('#access-denied-screen');
+  const mainContent = $('#main-content');
+
+  if (authLoading) authLoading.style.display = 'none';
+  if (mainContent) mainContent.style.display = 'none';
+  if (accessDeniedScreen) accessDeniedScreen.style.display = 'none';
+  if (authScreen) authScreen.style.display = 'flex';
+}
+
+async function loginWithGoogle() {
+  const btn = $('#google-login-btn');
+  const errorEl = $('#login-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Conectando con Google...</span>';
+  }
+
+  try {
+    await auth.signInWithPopup(googleProvider);
+  } catch (err) {
+    console.error('Google Sign-In error:', err);
+
+    if (err.code === 'auth/popup-blocked') {
+      try {
+        await auth.signInWithRedirect(googleProvider);
+        return;
+      } catch (redirectErr) {
+        console.error('Redirect sign-in error:', redirectErr);
+      }
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.347 2.825.957 4.039l3.007-2.332z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+        </svg>
+        <span>Continuar con Google</span>
+      `;
+    }
+
+    if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      if (errorEl) {
+        errorEl.textContent = `Error al iniciar sesión: ${err.message || 'Intente nuevamente'}`;
+        errorEl.style.display = 'block';
+      }
+    }
+  }
+}
+
+async function logout() {
+  try {
+    await auth.signOut();
+  } catch (err) {
+    console.error('Logout error:', err);
+    showToast(`Error al cerrar sesión: ${err.message}`, 'error');
+  }
+}
+
+// Check redirect result for devices that fallback to redirect
+auth.getRedirectResult().catch(err => {
+  console.warn('Redirect sign-in result error:', err);
+});
+
+// Auth state observer
+auth.onAuthStateChanged(user => {
+  if (user) {
+    if (isEmailAuthorized(user.email)) {
+      showDashboardView(user);
+    } else {
+      showAccessDeniedView(user);
+    }
+  } else {
+    showLoginView();
+  }
+});
 </script>
 </body>
 </html>
