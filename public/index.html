@@ -2380,33 +2380,18 @@ function render(d) {
   });
 }
 
-// ── Firebase Configuration & Authentication ──
-const firebaseConfig = {
-  apiKey: "AIzaSyANeQWmoUytaOg6FH-qexIF_Sh9oLqfPLI",
-  authDomain: "aluna-app-eca3a.firebaseapp.com",
-  projectId: "aluna-app-eca3a",
-  storageBucket: "aluna-app-eca3a.firebasestorage.app",
-  messagingSenderId: "1046817356813",
-  appId: "1:1046817356813:web:e8ae9425ac14547b412944"
-};
-
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const auth = firebase.auth();
-const googleProvider = new firebase.auth.GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-
-const ALLOWED_EMAILS = [
+// ── Firebase Authentication Initialization ──
+let auth = null;
+let googleProvider = null;
+let allowedEmailsList = [
   'bayron410@gmail.com',
   'alunaco1204@gmail.com'
 ];
-
 let isDashboardDataLoaded = false;
 
 function isEmailAuthorized(email) {
   if (!email) return false;
-  return ALLOWED_EMAILS.includes(email.toLowerCase().trim());
+  return allowedEmailsList.includes(email.toLowerCase().trim());
 }
 
 function updateHeaderUserInfo(user) {
@@ -2476,6 +2461,11 @@ function showLoginView() {
 }
 
 async function loginWithGoogle() {
+  if (!auth || !googleProvider) {
+    showToast('El servicio de autenticación aún no se ha inicializado', 'error');
+    return;
+  }
+
   const btn = $('#google-login-btn');
   const errorEl = $('#login-error');
   if (errorEl) {
@@ -2525,6 +2515,7 @@ async function loginWithGoogle() {
 }
 
 async function logout() {
+  if (!auth) return;
   try {
     await auth.signOut();
   } catch (err) {
@@ -2533,23 +2524,57 @@ async function logout() {
   }
 }
 
-// Check redirect result for devices that fallback to redirect
-auth.getRedirectResult().catch(err => {
-  console.warn('Redirect sign-in result error:', err);
-});
+async function initializeAppAuthentication() {
+  const authLoading = $('#auth-loading');
+  try {
+    const res = await fetch('/api/auth-config');
+    const data = await res.json();
 
-// Auth state observer
-auth.onAuthStateChanged(user => {
-  if (user) {
-    if (isEmailAuthorized(user.email)) {
-      showDashboardView(user);
-    } else {
-      showAccessDeniedView(user);
+    if (!res.ok || !data.success || !data.config) {
+      throw new Error(data.error || 'No se pudo obtener la configuración de autenticación.');
     }
-  } else {
-    showLoginView();
+
+    if (Array.isArray(data.allowedEmails) && data.allowedEmails.length > 0) {
+      allowedEmailsList = data.allowedEmails;
+    }
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(data.config);
+    }
+    auth = firebase.auth();
+    googleProvider = new firebase.auth.GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+    auth.getRedirectResult().catch(err => {
+      console.warn('Redirect sign-in result error:', err);
+    });
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        if (isEmailAuthorized(user.email)) {
+          showDashboardView(user);
+        } else {
+          showAccessDeniedView(user);
+        }
+      } else {
+        showLoginView();
+      }
+    });
+  } catch (err) {
+    console.error('Authentication initialization failure:', err);
+    if (authLoading) {
+      authLoading.innerHTML = `
+        <div style="text-align:center;max-width:380px;padding:2rem;background:var(--card);border:1px solid var(--border);border-radius:12px">
+          <div style="font-size:2rem;margin-bottom:0.75rem">⚠️</div>
+          <h3 style="color:#f87171;margin-bottom:0.5rem">Error de Configuración</h3>
+          <p style="color:var(--muted);font-size:0.85rem;line-height:1.4">${err.message}</p>
+        </div>
+      `;
+    }
   }
-});
+}
+
+initializeAppAuthentication();
 </script>
 </body>
 </html>
