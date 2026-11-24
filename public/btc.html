@@ -5,10 +5,202 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BTC - Dashboard Proyecto</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <!-- Firebase App and Authentication SDKs (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <style>
     :root{--bg:#0f1117;--card:#1a1d2e;--border:#2a2d3e;--text:#e4e4e7;--muted:#9ca3af;--accent:#6366f1;--green:#22c55e;--red:#ef4444;--orange:#f59e0b;--cyan:#06b6d4;--pink:#ec4899}
     *{margin:0;padding:0;box-sizing:border-box}
     body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+
+    /* ── Auth Screen & Access Denied Styles ── */
+    .auth-loading-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      gap: 16px;
+    }
+    .auth-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(circle at top, #1e1b4b 0%, #0f1117 70%);
+    }
+    .auth-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+    .auth-card .auth-logo {
+      font-size: 44px;
+      margin-bottom: 12px;
+    }
+    .auth-card h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .auth-card h1 span {
+      color: var(--accent);
+    }
+    .auth-card .auth-subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+    .btn-google-login {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: #ffffff;
+      color: #1f2937;
+      border: 1px solid #e5e7eb;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .btn-google-login:hover {
+      background: #f9fafb;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+    }
+    .btn-google-login:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .auth-security-note {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .auth-error-banner {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      text-align: left;
+      display: none;
+    }
+    .access-denied-box {
+      background: var(--card);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 16px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+    .access-denied-box .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .access-denied-box h2 {
+      font-size: 20px;
+      color: #f87171;
+      margin-bottom: 10px;
+    }
+    .access-denied-box p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .auth-btn-action {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .auth-btn-action:hover {
+      opacity: 0.9;
+    }
+
+    /* ── Nav User Info ── */
+    .header-user {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 10px 4px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .header-user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 11px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .header-user-avatar img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .header-user-email {
+      font-size: 12px;
+      color: var(--text);
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .btn-logout {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      padding: 3px 8px;
+      font-size: 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    .btn-logout:hover {
+      background: rgba(239, 68, 68, 0.25);
+    }
     #loadingOverlay{position:fixed;inset:0;background:rgba(15,17,23,.92);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:16px}
     .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -65,34 +257,87 @@
 </head>
 <body>
 
-<div id="loadingOverlay">
+<!-- Auth Loading Screen -->
+<div id="auth-loading" class="auth-loading-screen">
   <div class="spinner"></div>
-  <div class="loading-text">Cargando datos...</div>
+  <div style="color:var(--muted);font-size:14px">Verificando sesión...</div>
 </div>
 
-<div id="errorOverlay">
-  <div class="error-box">
-    <h2>Error al cargar datos</h2>
-    <p id="errorMessage"></p>
-    <button onclick="location.reload()">Reintentar</button>
+<!-- Login Screen -->
+<div id="auth-screen" class="auth-container" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">🪙</div>
+    <h1>BTC <span>Dashboard</span></h1>
+    <div class="auth-subtitle">Gestión Financiera del Proyecto</div>
+
+    <div id="login-error" class="auth-error-banner"></div>
+
+    <button id="google-login-btn" class="btn-google-login" onclick="loginWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.347 2.825.957 4.039l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+      </svg>
+      <span>Continuar con Google</span>
+    </button>
+
+    <div class="auth-security-note">
+      🔒 Acceso exclusivo para administradores autorizados
+    </div>
   </div>
 </div>
 
-<nav class="nav">
-  <button class="nav-btn active" data-section="resumen">Resumen General</button>
-  <button class="nav-btn" data-section="interes">Interes por Mes</button>
-  <button class="nav-btn" data-section="pasos">Pasos Dinero</button>
-  <button class="nav-btn" data-section="prestamos">Prestamos</button>
-  <button class="nav-btn" data-section="compras">Compras</button>
-  <button class="nav-btn" data-section="ventas">Ventas</button>
-  <button class="nav-btn" data-section="inventario">Inventario</button>
-  <button class="nav-btn" data-section="pagos">Pagos Mensuales</button>
-  <button class="nav-btn" data-section="gastos">Gastos</button>
-  <div class="nav-right">
-    <span id="lastUpdated"></span>
-    <button id="refreshBtn" class="nav-btn refresh-btn">↻ Actualizar</button>
+<!-- Access Denied Screen -->
+<div id="access-denied-screen" class="auth-container" style="display:none">
+  <div class="access-denied-box">
+    <div class="icon">⛔</div>
+    <h2>Acceso Restringido</h2>
+    <p>
+      La cuenta <strong id="denied-user-email" style="color:var(--text)"></strong> no tiene autorización para acceder a este dashboard.
+    </p>
+    <button class="auth-btn-action" onclick="logout()">
+      🚪 Cerrar sesión y probar otra cuenta
+    </button>
   </div>
-</nav>
+</div>
+
+<!-- Main Authenticated App -->
+<div id="main-content" style="display:none">
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Cargando datos...</div>
+  </div>
+
+  <div id="errorOverlay">
+    <div class="error-box">
+      <h2>Error al cargar datos</h2>
+      <p id="errorMessage"></p>
+      <button onclick="location.reload()">Reintentar</button>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <button class="nav-btn active" data-section="resumen">Resumen General</button>
+    <button class="nav-btn" data-section="interes">Interes por Mes</button>
+    <button class="nav-btn" data-section="pasos">Pasos Dinero</button>
+    <button class="nav-btn" data-section="prestamos">Prestamos</button>
+    <button class="nav-btn" data-section="compras">Compras</button>
+    <button class="nav-btn" data-section="ventas">Ventas</button>
+    <button class="nav-btn" data-section="inventario">Inventario</button>
+    <button class="nav-btn" data-section="pagos">Pagos Mensuales</button>
+    <button class="nav-btn" data-section="gastos">Gastos</button>
+    <div class="nav-right">
+      <span id="lastUpdated"></span>
+      <button id="refreshBtn" class="nav-btn refresh-btn">↻ Actualizar</button>
+      <div class="header-user" id="header-user">
+        <div id="user-avatar-slot" class="header-user-avatar">U</div>
+        <span class="header-user-email" id="header-user-email"></span>
+        <button type="button" class="btn-logout" onclick="logout()" title="Cerrar sesión">Salir</button>
+      </div>
+      <a href="/" class="nav-btn" style="text-decoration:none" title="Volver a Aluna">📦 Aluna</a>
+    </div>
+  </nav>
 
 <div class="container">
 
@@ -207,6 +452,7 @@
   </div>
 
 </div>
+</div><!-- /#main-content -->
 
 <script>
 const fmt = n => '$' + (n||0).toLocaleString('es-CO');
@@ -447,7 +693,184 @@ async function load(){
 
 document.getElementById('refreshBtn').addEventListener('click',load);
 
-load();
+// ── Firebase Authentication Initialization ──
+let auth = null;
+let googleProvider = null;
+let allowedEmailsList = [
+  'bayron410@gmail.com',
+  'alunaco1204@gmail.com',
+];
+let isBtcDataLoaded = false;
+
+function isEmailAuthorized(email) {
+  if (!email) return false;
+  return allowedEmailsList.includes(email.toLowerCase().trim());
+}
+
+function updateHeaderUserInfo(user) {
+  const avatarSlot = document.getElementById('user-avatar-slot');
+  const emailEl = document.getElementById('header-user-email');
+  const email = (user.email || '').toLowerCase().trim();
+
+  if (emailEl) emailEl.textContent = email;
+
+  if (avatarSlot) {
+    if (user.photoURL) {
+      avatarSlot.innerHTML = `<img src="${user.photoURL}" alt="avatar" referrerpolicy="no-referrer">`;
+    } else {
+      const initial = (user.displayName || email || 'U').charAt(0).toUpperCase();
+      avatarSlot.textContent = initial;
+    }
+  }
+}
+
+function showDashboardView(user) {
+  document.getElementById('auth-loading').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('access-denied-screen').style.display = 'none';
+  document.getElementById('main-content').style.display = 'block';
+
+  updateHeaderUserInfo(user);
+
+  if (!isBtcDataLoaded) {
+    isBtcDataLoaded = true;
+    load();
+  }
+}
+
+function showAccessDeniedView(user) {
+  document.getElementById('auth-loading').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-content').style.display = 'none';
+  document.getElementById('access-denied-screen').style.display = 'flex';
+
+  const deniedEmailEl = document.getElementById('denied-user-email');
+  if (deniedEmailEl) deniedEmailEl.textContent = user.email || 'desconocido';
+}
+
+function showLoginView() {
+  isBtcDataLoaded = false;
+  document.getElementById('auth-loading').style.display = 'none';
+  document.getElementById('main-content').style.display = 'none';
+  document.getElementById('access-denied-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function loginWithGoogle() {
+  if (!auth || !googleProvider) {
+    alert('El servicio de autenticación aún no se ha inicializado');
+    return;
+  }
+
+  const btn = document.getElementById('google-login-btn');
+  const errorEl = document.getElementById('login-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Conectando con Google...</span>';
+  }
+
+  try {
+    await auth.signInWithPopup(googleProvider);
+  } catch (err) {
+    console.error('Google Sign-In error:', err);
+
+    if (err.code === 'auth/popup-blocked') {
+      try {
+        await auth.signInWithRedirect(googleProvider);
+        return;
+      } catch (redirectErr) {
+        console.error('Redirect sign-in error:', redirectErr);
+      }
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.347 2.825.957 4.039l3.007-2.332z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+        </svg>
+        <span>Continuar con Google</span>
+      `;
+    }
+
+    if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      if (errorEl) {
+        errorEl.textContent = `Error al iniciar sesión: ${err.message || 'Intente nuevamente'}`;
+        errorEl.style.display = 'block';
+      }
+    }
+  }
+}
+
+async function logout() {
+  if (!auth) return;
+  try {
+    await auth.signOut();
+  } catch (err) {
+    console.error('Logout error:', err);
+    alert(`Error al cerrar sesión: ${err.message}`);
+  }
+}
+
+async function initializeAppAuthentication() {
+  const authLoading = document.getElementById('auth-loading');
+  try {
+    const res = await fetch('/api/auth-config');
+    const data = await res.json();
+
+    if (!res.ok || !data.success || !data.config) {
+      throw new Error(data.error || 'No se pudo obtener la configuración de autenticación.');
+    }
+
+    if (Array.isArray(data.allowedEmails) && data.allowedEmails.length > 0) {
+      allowedEmailsList = data.allowedEmails;
+    }
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(data.config);
+    }
+    auth = firebase.auth();
+    googleProvider = new firebase.auth.GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+    auth.getRedirectResult().catch(err => {
+      console.warn('Redirect sign-in result error:', err);
+    });
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        if (isEmailAuthorized(user.email)) {
+          showDashboardView(user);
+        } else {
+          showAccessDeniedView(user);
+        }
+      } else {
+        showLoginView();
+      }
+    });
+  } catch (err) {
+    console.error('Authentication initialization failure:', err);
+    if (authLoading) {
+      authLoading.innerHTML = `
+        <div style="text-align:center;max-width:380px;padding:32px;background:var(--card);border:1px solid var(--border);border-radius:12px">
+          <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+          <h3 style="color:#f87171;margin-bottom:8px">Error de Configuración</h3>
+          <p style="color:var(--muted);font-size:14px;line-height:1.5">${err.message}</p>
+        </div>
+      `;
+    }
+  }
+}
+
+initializeAppAuthentication();
 </script>
 </body>
 </html>
